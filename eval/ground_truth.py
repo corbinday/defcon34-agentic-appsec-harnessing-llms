@@ -117,9 +117,11 @@ class Score:
     fp: int = 0          # not vulnerable, called vulnerable   <- false positive
     fn: int = 0          # vulnerable, missed                  <- false negative
     tn: int = 0          # not vulnerable, called not vulnerable
+    undetermined: int = 0  # never actually tested  <- NOT a clean negative
     technique_hit: int = 0
     missed: list = field(default_factory=list)
     false_alarms: list = field(default_factory=list)
+    not_tested: list = field(default_factory=list)
 
     @property
     def precision(self) -> float:
@@ -137,32 +139,62 @@ class Score:
         return 2 * p * r / (p + r) if (p + r) else 0.0
 
     def report(self) -> str:
-        return (
-            f"  detection   TP={self.tp}  FN={self.fn}   (recall {self.recall:.2f})\n"
-            f"  false alarm FP={self.fp}  TN={self.tn}   (precision {self.precision:.2f})\n"
-            f"  F1          {self.f1:.2f}\n"
-            f"  technique also correct  {self.technique_hit}/{self.tp}\n"
-            + (f"  MISSED: {self.missed}\n" if self.missed else "")
-            + (f"  MADE UP: {self.false_alarms}\n" if self.false_alarms else "")
-        )
+        lines = [
+            f"  detection  TP={self.tp}  FN={self.fn}   (recall {self.recall:.2f})",
+            f"  precision  FP={self.fp}  TN={self.tn}   (precision {self.precision:.2f})",
+            f"  F1         {self.f1:.2f}",
+            f"  technique also correct  {self.technique_hit}/{self.tp}",
+        ]
+        if self.undetermined:
+            lines.append(
+                f"  NOT TESTED {self.undetermined}"
+                f"  (excluded from the scores above, never counted as a pass)")
+        for label, items in (("MISSED", self.missed),
+                             ("INVENTED", self.false_alarms),
+                             ("NOT REACHED", self.not_tested)):
+            lines += [f"    {label}: {it}" for it in items]
+        return "\n".join(lines) + "\n"
+
+
+def _path_of(url: str) -> str:
+    """Reduce a finding's url to the path we key on.
+
+    The pipeline reports a full URL ("https://host/vulnerabilities/sqli/") while
+    the labels above are paths ("/vulnerabilities/sqli/"). Comparing those two
+    strings raw matches nothing, every case scores as a miss, and the report
+    reads like a total detection failure instead of a broken join.
+    """
+    if "://" in url:
+        url = url.split("://", 1)[1]
+        url = url[url.find("/"):] if "/" in url else "/"
+    url = url.split("?", 1)[0].split("#", 1)[0]
+    return url.rstrip("/") or "/"
 
 
 def grade(findings: list[dict]) -> Score:
     """
     findings: pipeline output.
-        [{"url":..., "method":..., "param":..., "vulnerable":bool, "technique":str}]
+        [{"url":..., "method":..., "param":..., "vulnerable":bool,
+          "technique":str, "error":str|None}]
+
+    A finding with a non-null "error" was never actually tested. It is scored as
+    undetermined, not as a clean negative -- otherwise a pipeline that fails to
+    reach a page collects the same credit as one that cleared it.
     """
     got = {
-        (f["url"].rstrip("/"), f["method"].upper(), f["param"]): f
+        (_path_of(f["url"]), f.get("method", "GET").upper(), f["param"]): f
         for f in findings
     }
     s = Score()
     for exp in ALL:
-        key = (exp.url.rstrip("/"), exp.method.upper(), exp.param)
+        key = (_path_of(exp.url), exp.method.upper(), exp.param)
         f = got.get(key)
         said_vuln = bool(f and f.get("vulnerable"))
 
-        if exp.is_vulnerable and said_vuln:
+        if f is not None and f.get("error"):
+            s.undetermined += 1
+            s.not_tested.append(f"{exp.url}?{exp.param}  ({f['error']})")
+        elif exp.is_vulnerable and said_vuln:
             s.tp += 1
             if f.get("technique") == exp.technique:
                 s.technique_hit += 1
@@ -174,6 +206,15 @@ def grade(findings: list[dict]) -> Score:
             s.false_alarms.append(f"{exp.url}?{exp.param}")
         else:
             s.tn += 1
+
+    # Anything the report claims that we never labelled. These are the dangerous
+    # ones: an invented finding is worse than a missed one, and dropping it here
+    # would hide it from the score entirely.
+    labelled = {(_path_of(e.url), e.method.upper(), e.param) for e in ALL}
+    for k, f in got.items():
+        if k not in labelled and f.get("vulnerable"):
+            s.fp += 1
+            s.false_alarms.append(f"UNLABELLED {k[1]} {k[0]}?{k[2]}")
     return s
 
 
