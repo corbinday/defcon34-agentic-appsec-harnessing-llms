@@ -44,20 +44,26 @@ def main():
     ap.add_argument("--runs", type=int, default=1)
     ap.add_argument("--llm", action="store_true",
                     help="score the deep agent instead of the Python stubs")
-    ap.add_argument("--mcp", action="store_true",
-                    help="reach the tools through mcp_server.py over stdio "
-                         "instead of importing them in process")
+    ap.add_argument("--direct", action="store_true",
+                    help="DEBUG ONLY. Import the tools in process instead of "
+                         "reaching them through the MCP servers. Scoring the "
+                         "bypass means scoring something we do not ship.")
     args = ap.parse_args()
 
-    # Both flags go into `mode`, because "which score is this" has two axes and
-    # a demo that shows one number needs to say which run produced it.
+    # MCP is the transport here too, matching agent/pipeline.py. Scoring a path
+    # the tool does not normally take would make the number meaningless: the
+    # point of the score is that it describes the thing we hand over.
+    use_mcp = False if args.direct else None
+
+    # Which score is this? There are two axes, and a demo that puts one number
+    # on screen has to be able to say which run produced it.
     mode = "%s+%s" % ("deep-agent" if args.llm else "stub",
-                      "mcp" if args.mcp else "in-process")
+                      "direct" if args.direct else "mcp")
     summaries = []
     for i in range(args.runs):
         print("\n===== run %d/%d (%s) =====" % (i + 1, args.runs, mode))
         summaries.append(pipeline.run(args.target, use_llm=args.llm,
-                                      use_mcp=args.mcp))
+                                      use_mcp=use_mcp))
 
     print("\n===== score (run 1 of %d, %d labels, %s) ====="
           % (args.runs, len(ALL), mode))

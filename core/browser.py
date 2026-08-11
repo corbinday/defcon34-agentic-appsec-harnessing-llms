@@ -235,6 +235,23 @@ def _seed_cookies(context, session, base):
     return len(jar)
 
 
+def _headful():
+    """Read the setting late so core/ stays importable without agent/."""
+    try:
+        from agent import config
+        return bool(config.HEADFUL)
+    except Exception:
+        return False
+
+
+def _slow_mo():
+    try:
+        from agent import config
+        return int(config.HEADFUL_SLOW_MO_MS)
+    except Exception:
+        return 250
+
+
 def _crawl(base, session, allowed, max_pages, max_depth):
     from playwright.sync_api import Error as PwError, sync_playwright
 
@@ -244,7 +261,13 @@ def _crawl(base, session, allowed, max_pages, max_depth):
 
     with sync_playwright() as pw:
         try:
-            browser = pw.chromium.launch(headless=True)
+            headful = _headful()
+            browser = pw.chromium.launch(
+                headless=not headful,
+                slow_mo=_slow_mo() if headful else 0)
+            if headful:
+                print("[browser] headful: a Chromium window will open and you "
+                      "can watch the crawl")
         except PwError as exc:
             msg = str(exc)
             if "Executable doesn" in msg or "playwright install" in msg:

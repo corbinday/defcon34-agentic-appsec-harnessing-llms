@@ -1,7 +1,7 @@
 {
   "target": "https://dvwa-production-a515.up.railway.app",
-  "mode": "stub+mcp",
-  "runs": 1,
+  "mode": "stub+in-process",
+  "runs": 3,
   "labels": 7,
   "tp": 3,
   "fp": 0,
@@ -22,10 +22,14 @@
   "consistency": {
     "identical": true,
     "per_run_confirmed": [
+      3,
+      3,
       3
     ],
     "per_run_requests": [
-      182
+      184,
+      184,
+      184
     ]
   }
 }

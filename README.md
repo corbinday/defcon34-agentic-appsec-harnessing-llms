@@ -21,6 +21,9 @@ person. Point your AI assistant at it, then at your own section.
 
 ## Run
 
+**Use a virtual environment.** Not a style preference: the run has to reproduce
+on someone else's machine, and "works here" is not a result anyone can check.
+
 macOS / Linux:
 
 ```sh
@@ -38,12 +41,34 @@ pip install -r requirements.txt
 playwright install chromium
 ```
 
+Bedrock credentials go in a `.env` file at the repo root. It is git-ignored:
+
+```
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_DEFAULT_REGION=us-east-1
+```
+
 Then, on either platform:
 
 ```sh
 python agent/pipeline.py --target https://dvwa-production-a515.up.railway.app
 python eval/run_eval.py  --target https://dvwa-production-a515.up.railway.app --runs 3
 ```
+
+Add `--llm` to run stages 2 and 4 through the deep agent instead of the
+deterministic stubs. Stages 1 and 3 already go through the MCP server; `--direct`
+bypasses it, for debugging only.
+
+**Watch the crawl.** Stage 1 is a real Playwright crawl, and the fastest way to
+prove that is to let it open a window:
+
+```powershell
+$env:DAST_HEADFUL = "1"        # bash: export DAST_HEADFUL=1
+python agent/pipeline.py --target https://dvwa-production-a515.up.railway.app
+```
+
+Off by default, because a visible window is slower and needs a desktop session.
 
 **The target is always an argument.** Our shared DVWA lives at
 `https://dvwa-production-a515.up.railway.app`; run a local container while you

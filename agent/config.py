@@ -1,3 +1,5 @@
+import os
+
 """Every knob in one file. OWNER: Mike (models), shared for the rest.
 
 Model ids live here and nowhere else. When a model turns out not to emit tool
@@ -107,3 +109,15 @@ MCP_SERVERS = [
 
 # Debug escape hatch only. Leave this False.
 BYPASS_MCP = False
+
+# Show the browser while it crawls. Off by default because a visible window is
+# slower and needs a desktop session, which a CI box or a container does not
+# have. Turn it on for a demo -- watching Playwright walk the target is the
+# clearest way to show that stage 1 is a real crawl and not a seed list.
+#   PowerShell:  $env:DAST_HEADFUL = "1"
+#   bash:        export DAST_HEADFUL=1
+HEADFUL = os.environ.get("DAST_HEADFUL", "").strip() not in ("", "0", "false", "False")
+
+# Slow the browser down so a person can follow it. Milliseconds per action,
+# and only applied when HEADFUL is on.
+HEADFUL_SLOW_MO_MS = int(os.environ.get("DAST_SLOW_MO", "250"))
