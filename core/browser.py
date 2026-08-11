@@ -236,7 +236,7 @@ def _crawl(base, session, allowed, max_pages, max_depth):
 
     with sync_playwright() as pw:
         try:
-            browser = pw.chromium.launch(headless=True)
+            browser = pw.chromium.launch(headless=False)
         except PwError as exc:
             msg = str(exc)
             if "Executable doesn" in msg or "playwright install" in msg:
