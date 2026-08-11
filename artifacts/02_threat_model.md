@@ -1,5 +1,7 @@
 # Threat model - https://dvwa-production-a515.up.railway.app
 
+The application contains three confirmed SQL injection vulnerabilities across two distinct endpoints. Two vulnerabilities use error-based techniques to expose database errors, while one uses boolean-blind logic to infer query results. All confirmed findings are critical severity.
+
 ## Entry points
 
 - POST `user_token` on https://dvwa-production-a515.up.railway.app/setup.php
@@ -43,6 +45,6 @@ The browser sends parameters; PHP interpolates them into SQL and MariaDB execute
 
 ## Confirmed crossings
 
-- https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/ `username` via error-based
 - https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli/ `id` via error-based
 - https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli_blind/ `id` via boolean-blind
+- https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/ `username` via error-based

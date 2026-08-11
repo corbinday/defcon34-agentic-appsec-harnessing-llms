@@ -10,6 +10,15 @@ agent/prompts.py. The stubs stay as the fallback -- do not delete them.
     python agent/pipeline.py --target URL          stubs, works offline
     python agent/pipeline.py --target URL --llm    deep agent, needs Bedrock
 
+**Stages 1 and 3 have two transports.** By default they import core/browser.py
+and core/prober.py and call them in process. Pass **--mcp** and they go through
+mcp_server.py over stdio instead, which is where the session, the login, the
+allow-list and the request budget then live -- see mcp_server.py for why that
+boundary is worth a subprocess. The two flags are different axes and combine:
+
+    python agent/pipeline.py --target URL --mcp        tools over MCP
+    python agent/pipeline.py --target URL --llm --mcp  both
+
 The seam is deliberate. Stage 2 has one job -- turn a list of points into a
 ranked subset with a context label -- and stage 4 has one job: turn verdicts into
 markdown. Swap either one without touching stages 1 and 3.
@@ -52,8 +61,11 @@ HIGH = ("id", "uid", "user_id", "pid", "no", "seq", "idx",
 CONTROL = ("submit", "login", "user_token", "csrf_token", "_method", "seclev_submit")
 
 
-def stage1_enumerate(session, target):
-    points = enumerate_endpoints(target, session=session)
+def stage1_enumerate(session, target, enumerate_fn=None):
+    """enumerate_fn is the --mcp seam: None means call core/browser.py directly,
+    which is the default path and the one the live numbers were measured on."""
+    points = (enumerate_fn(target) if enumerate_fn
+              else enumerate_endpoints(target, session=session))
     lines = ["# Context: attack surface of %s" % target, "",
              "Collected by `enumerate_endpoints` before anything was tested.",
              "", "| # | Method | URL | Parameter | Value | Siblings replayed |",
@@ -91,11 +103,16 @@ def stage2_triage(points):
     return candidates[:config.MAX_CANDIDATES]
 
 
-def stage3_confirm(session, candidates):
+def stage3_confirm(session, candidates, evaluate_fn=None):
+    """evaluate_fn is the --mcp seam. Same arguments either way; the MCP client
+    has no `session` argument because the server owns the session."""
     verdicts = []
     for c in candidates:
-        r = evaluate_sqli(c["url"], c["method"], c["param"], c["context"],
-                          value=c["value"], siblings=c["siblings"], session=session)
+        r = (evaluate_fn(c["url"], c["method"], c["param"], c["context"],
+                         value=c["value"], siblings=c["siblings"])
+             if evaluate_fn else
+             evaluate_sqli(c["url"], c["method"], c["param"], c["context"],
+                           value=c["value"], siblings=c["siblings"], session=session))
         verdicts.append(dict(c, **r))
         mark = "CONFIRMED" if r["confirmed"] else ("ERROR" if r["error"] else "clean")
         print("  [%-9s] %s %s  param=%s  stage=%s  requests=%d"
@@ -169,12 +186,45 @@ def _llm_stages():
     return llm_triage, llm_report
 
 
-def run(target, max_requests=None, use_llm=False):
+def _mcp_tools(target, max_requests):
+    """Open the one MCP connection and hand back the two tool callables.
+
+    --llm and --mcp are different axes and combine freely: --llm swaps stages 2
+    and 4 for the deep agent, --mcp moves stages 1 and 3 behind a process
+    boundary. Neither knows about the other.
+    """
+    try:
+        from core import mcp_client
+    except Exception as exc:
+        raise SystemExit("--mcp cannot run here:\n%s" % exc)
+    try:
+        mcp_client.connect(target, max_requests=max_requests)
+    except Exception as exc:
+        raise SystemExit(
+            "--mcp could not start mcp_server.py:\n%s: %s\n"
+            "Without --mcp the pipeline calls core/browser.py and "
+            "core/prober.py in process, which needs none of this."
+            % (type(exc).__name__, exc))
+    return mcp_client
+
+
+def run(target, max_requests=None, use_llm=False, use_mcp=False):
     started = time.time()
     # Fail before the first request if --llm cannot be honoured. Discovering a
     # missing dependency after stage 3 has spent the request budget is the worst
     # possible time to discover it.
     llm_triage, llm_report = _llm_stages() if use_llm else (None, None)
+
+    # Same reason as --llm: if the tool transport cannot come up, fail now,
+    # before stage 1 has spent a single request.
+    mcp = _mcp_tools(target, max_requests) if use_mcp else None
+    enumerate_fn = mcp.enumerate_endpoints if mcp else None
+    evaluate_fn = mcp.evaluate_sqli if mcp else None
+    print("[route] stages 1+3 %s | stages 2+4 %s"
+          % ("via the MCP server (mcp_server.py over stdio)" if use_mcp
+             else "call core/browser.py and core/prober.py in process",
+             "via the deep agent (agent/deep_agent.py)" if use_llm
+             else "run as Python stubs"))
 
     session = Session(target, config.ALLOWED_TARGETS,
                       max_requests=max_requests or config.MAX_REQUESTS,
@@ -184,7 +234,7 @@ def run(target, max_requests=None, use_llm=False):
         raise SystemExit("login failed - check the target and the credentials")
 
     print("[1] enumerate")
-    points = stage1_enumerate(session, target)
+    points = stage1_enumerate(session, target, enumerate_fn)
     print("    %d injection points" % len(points))
 
     print("[2] triage%s" % (" (LLM)" if use_llm else " (stub)"))
@@ -193,7 +243,7 @@ def run(target, max_requests=None, use_llm=False):
     print("    %d of %d selected" % (len(candidates), len(points)))
 
     print("[3] confirm")
-    verdicts = stage3_confirm(session, candidates)
+    verdicts = stage3_confirm(session, candidates, evaluate_fn)
 
     elapsed = time.time() - started
     print("[4] report%s" % (" (LLM)" if use_llm else " (stub)"))
@@ -202,8 +252,16 @@ def run(target, max_requests=None, use_llm=False):
     else:
         stage4_report(target, points, verdicts, elapsed)
 
+    # With --mcp the probe requests are spent by the SERVER's session, not by
+    # ours, so session.requests_used alone would report the login and nothing
+    # else. Each verdict carries its own count, so add them back rather than
+    # printing a number we know is wrong. (The crawl is not in either figure:
+    # Playwright never goes through core/session.py, on both paths.)
+    requests_used = session.requests_used + (
+        sum(v["requests_used"] for v in verdicts) if use_mcp else 0)
+
     summary = {"target": target, "points_total": len(points),
-               "points_tested": len(verdicts), "requests_used": session.requests_used,
+               "points_tested": len(verdicts), "requests_used": requests_used,
                "elapsed_sec": round(elapsed, 1),
                "findings": [{"url": v["url"], "method": v["method"], "param": v["param"],
                              "vulnerable": v["confirmed"], "technique": v["technique"],
@@ -211,7 +269,9 @@ def run(target, max_requests=None, use_llm=False):
                              "error": v["error"]} for v in verdicts]}
     _write("03_findings.json", json.dumps(summary, indent=2, ensure_ascii=False))
     print("    %d confirmed, %d requests, %.1fs"
-          % (sum(1 for v in verdicts if v["confirmed"]), session.requests_used, elapsed))
+          % (sum(1 for v in verdicts if v["confirmed"]), requests_used, elapsed))
+    if mcp:
+        mcp.close()          # stop the server subprocess; atexit also covers it
     return summary
 
 
@@ -224,5 +284,12 @@ if __name__ == "__main__":
                          "(agent/deep_agent.py) instead of the Python stubs. "
                          "Needs 'pip install -r requirements.txt' plus AWS "
                          "credentials; without it the stubs run as before.")
+    ap.add_argument("--mcp", action="store_true",
+                    help="run stages 1 and 3 through mcp_server.py over stdio "
+                         "instead of importing core/browser.py and "
+                         "core/prober.py in process. The server owns the "
+                         "session, the login, the allow-list and the request "
+                         "budget. Combines freely with --llm. Needs "
+                         "'pip install mcp'.")
     a = ap.parse_args()
-    run(a.target, a.max_requests, use_llm=a.llm)
+    run(a.target, a.max_requests, use_llm=a.llm, use_mcp=a.mcp)
