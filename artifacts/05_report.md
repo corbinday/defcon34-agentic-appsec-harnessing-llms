@@ -1,11 +1,11 @@
 # SQL injection assessment - https://dvwa-production-a515.up.railway.app
 
-27 injection points enumerated, 8 tested, **3 confirmed**.
-Wall time 77.7s.
+27 injection points enumerated, 4 tested, **3 confirmed**.
+Wall time 61.1s.
 
 ## Summary
 
-The assessment identified three confirmed SQL injection vulnerabilities across DVWA's injection endpoints. Two are error-based (in the standard SQLi and brute-force modules), and one is boolean-blind (in the blind SQLi module). All three allow attackers to manipulate SQL queries through unsanitized user input.
+The application contains three confirmed SQL injection vulnerabilities across different endpoints. Two are error-based injection points in numeric contexts, and one is a boolean-blind injection in a numeric context. The vulnerabilities allow attackers to extract or manipulate database content.
 
 ## Confirmed findings
 
@@ -16,16 +16,16 @@ The assessment identified three confirmed SQL injection vulnerabilities across D
 - Payload: `'`
 - Requests used: 3
 - Evidence: DB error fingerprint 'You have an error in your SQL syntax' in response: ...or</b>: Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ''1''' at line 1 in /var/www/html/vulnerabilit...
-- Fix: Use prepared statements with parameterized queries. Replace direct string concatenation with mysqli_prepare() and mysqli_bind_param(), or use an ORM. Example: $stmt = $mysqli->prepare("SELECT * FROM users WHERE id = ?"); $stmt->bind_param("i", $id); $stmt->execute();
+- Fix: Use parameterized queries (prepared statements) with bound parameters instead of string concatenation. In PHP with MySQLi, use mysqli_prepare() and mysqli_stmt_bind_param(), or use PDO with prepared statements.
 
 ### GET `id` (boolean-blind)
 
 - URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli_blind/
-- Severity: critical
+- Severity: high
 - Payload: `' AND '1'='1  vs  ' AND '1'='2`
 - Requests used: 15
 - Evidence: asymmetry confirmed - baseline 4703 bytes / TRUE 4703 / FALSE 4709, compared by content (TRUE matches baseline, FALSE differs)
-- Fix: Use prepared statements with parameterized queries. Replace direct string concatenation with mysqli_prepare() and mysqli_bind_param(), or use an ORM. Example: $stmt = $mysqli->prepare("SELECT * FROM users WHERE id = ?"); $stmt->bind_param("i", $id); $stmt->execute();
+- Fix: Use parameterized queries (prepared statements) with bound parameters instead of string concatenation. In PHP with MySQLi, use mysqli_prepare() and mysqli_stmt_bind_param(), or use PDO with prepared statements.
 
 ### GET `username` (error-based)
 
@@ -34,7 +34,7 @@ The assessment identified three confirmed SQL injection vulnerabilities across D
 - Payload: `'`
 - Requests used: 3
 - Evidence: DB error fingerprint 'You have an error in your SQL syntax' in response: ...or</b>: Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'd41d8cd98f00b204e9800998ecf8427e'' at line 1...
-- Fix: Use prepared statements with parameterized queries. Replace direct string concatenation with mysqli_prepare() and mysqli_bind_param(), or use an ORM. Example: $stmt = $mysqli->prepare("SELECT * FROM users WHERE username = ?"); $stmt->bind_param("s", $username); $stmt->execute();
+- Fix: Use parameterized queries (prepared statements) with bound parameters instead of string concatenation. In PHP with MySQLi, use mysqli_prepare() and mysqli_stmt_bind_param(), or use PDO with prepared statements.
 
 ---
 

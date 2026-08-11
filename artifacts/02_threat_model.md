@@ -1,6 +1,6 @@
 # Threat model - https://dvwa-production-a515.up.railway.app
 
-The assessment identified three confirmed SQL injection vulnerabilities across DVWA's injection endpoints. Two are error-based (in the standard SQLi and brute-force modules), and one is boolean-blind (in the blind SQLi module). All three allow attackers to manipulate SQL queries through unsanitized user input.
+The application contains three confirmed SQL injection vulnerabilities across different endpoints. Two are error-based injection points in numeric contexts, and one is a boolean-blind injection in a numeric context. The vulnerabilities allow attackers to extract or manipulate database content.
 
 ## Entry points
 
