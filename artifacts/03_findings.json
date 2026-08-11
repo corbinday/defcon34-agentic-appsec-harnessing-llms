@@ -1,9 +1,9 @@
 {
   "target": "https://dvwa-production-a515.up.railway.app",
-  "points_total": 12,
+  "points_total": 26,
   "points_tested": 6,
-  "requests_used": 58,
-  "elapsed_sec": 14.3,
+  "requests_used": 52,
+  "elapsed_sec": 45.9,
   "findings": [
     {
       "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli/",
@@ -36,9 +36,9 @@
       "error": null
     },
     {
-      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/",
-      "method": "GET",
-      "param": "password",
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/csp/",
+      "method": "POST",
+      "param": "include",
       "vulnerable": false,
       "technique": "none",
       "payload": "",
@@ -46,9 +46,9 @@
       "error": null
     },
     {
-      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/exec/",
-      "method": "POST",
-      "param": "ip",
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/xss_d/",
+      "method": "GET",
+      "param": "default",
       "vulnerable": false,
       "technique": "none",
       "payload": "",

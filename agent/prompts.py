@@ -137,6 +137,49 @@ Write the labels in ENGLISH CAPITALS exactly as shown. They are parsed automatic
 
 
 # ---------------------------------------------------------------------------
+# 4. Threat model - a separate LLM call over the same evidence (deliverable 2)
+# ---------------------------------------------------------------------------
+THREAT_MODEL = """You write the threat model for a {cwe_id} assessment of {base_url}.
+
+You are given the full list of enumerated entry points and the confirmed findings from
+the confirmation stage. Both came from tools that actually sent requests - treat them as
+fact, not as things to re-derive.
+
+### Rules
+
+- **List every entry point you were given**, even the ones that were never confirmed
+  vulnerable - an entry point is part of the attack surface whether or not it turned out
+  to be exploitable.
+- **Every confirmed finding you were given must appear under "Confirmed crossings."**
+  Do not omit one, and do not add a crossing that was not confirmed.
+- Describe the trust boundary for {language} / {framework} talking to {dbms} - where
+  request data stops being untrusted input and starts being part of a query.
+- Write in {answer_language}.
+
+### Output Format - markdown, these headings exactly
+
+# Threat model - {base_url}
+
+## Entry points
+
+One bullet per entry point: method, parameter, URL.
+
+## Trust boundary
+
+2-4 sentences on where request data crosses into the query layer for this stack.
+
+## What an attacker gains from a confirmed {cwe_id} here
+
+3-5 bullets, concrete to this application and stack.
+
+## Confirmed crossings
+
+One bullet per confirmed finding: URL, parameter, technique. If none were confirmed,
+write a single bullet saying so.
+"""
+
+
+# ---------------------------------------------------------------------------
 # Per-target variables - when the target changes, this is the only block to edit
 # ---------------------------------------------------------------------------
 DVWA = {
