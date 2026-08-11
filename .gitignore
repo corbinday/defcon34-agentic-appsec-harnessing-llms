@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local-only Korean reading copy of AGENTS.md (not shared with the team)
+AGENTS.ko.md

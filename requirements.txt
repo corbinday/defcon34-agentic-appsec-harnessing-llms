@@ -1,0 +1,18 @@
+# Harness — same stack as the lecture example (Bedrock via langchain-aws)
+deepagents
+langchain-aws
+langchain-core
+langchain-community
+langchain-text-splitters
+python-dotenv
+
+# Chatbot / knowledge base (deliverable 3)
+faiss-cpu
+
+# Tool layer
+playwright          # stage 1 only: crawling. run "playwright install chromium"
+requests            # stage 3: raw HTTP, so timing and byte diffs stay clean
+beautifulsoup4      # form and parameter extraction
+
+# Tests
+pytest
