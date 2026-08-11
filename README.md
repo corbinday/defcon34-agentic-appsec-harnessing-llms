@@ -60,15 +60,13 @@ Add `--llm` to run stages 2 and 4 through the deep agent instead of the
 deterministic stubs. Stages 1 and 3 already go through the MCP server; `--direct`
 bypasses it, for debugging only.
 
-**Watch the crawl.** Stage 1 is a real Playwright crawl, and the fastest way to
-prove that is to let it open a window:
+**You will see the browser.** Stage 1 is a real Playwright crawl and it runs
+visibly, because a seed list cannot be mistaken for a window walking the target.
+Turn it off only where no window can open - a container, CI, SSH with no display:
 
 ```powershell
-$env:DAST_HEADFUL = "1"        # bash: export DAST_HEADFUL=1
-python agent/pipeline.py --target https://dvwa-production-a515.up.railway.app
+$env:DAST_HEADLESS = "1"       # bash: export DAST_HEADLESS=1
 ```
-
-Off by default, because a visible window is slower and needs a desktop session.
 
 **The target is always an argument.** Our shared DVWA lives at
 `https://dvwa-production-a515.up.railway.app`; run a local container while you

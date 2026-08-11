@@ -110,14 +110,16 @@ MCP_SERVERS = [
 # Debug escape hatch only. Leave this False.
 BYPASS_MCP = False
 
-# Show the browser while it crawls. Off by default because a visible window is
-# slower and needs a desktop session, which a CI box or a container does not
-# have. Turn it on for a demo -- watching Playwright walk the target is the
-# clearest way to show that stage 1 is a real crawl and not a seed list.
-#   PowerShell:  $env:DAST_HEADFUL = "1"
-#   bash:        export DAST_HEADFUL=1
-HEADFUL = os.environ.get("DAST_HEADFUL", "").strip() not in ("", "0", "false", "False")
+# Show the browser while it crawls. ON by default: stage 1 is a real Playwright
+# crawl, and the fastest way to prove that to anyone watching is to let them see
+# it happen. A seed list cannot be mistaken for this.
+#
+# Turn it off on a machine with no desktop session - a container, CI, or an SSH
+# session without a display - where a visible window cannot open at all:
+#   PowerShell:  $env:DAST_HEADLESS = "1"
+#   bash:        export DAST_HEADLESS=1
+HEADFUL = os.environ.get("DAST_HEADLESS", "").strip() in ("", "0", "false", "False")
 
-# Slow the browser down so a person can follow it. Milliseconds per action,
-# and only applied when HEADFUL is on.
+# Milliseconds per browser action, so a person can follow along. Only applied
+# when the browser is visible.
 HEADFUL_SLOW_MO_MS = int(os.environ.get("DAST_SLOW_MO", "250"))
