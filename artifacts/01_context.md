@@ -29,7 +29,7 @@ Collected by `enumerate_endpoints` before anything was tested.
 | 23 | POST | https://dvwa-production-a515.up.railway.app/vulnerabilities/cryptography/index.php | `direction` | `encode` | `message` |
 | 24 | POST | https://dvwa-production-a515.up.railway.app/vulnerabilities/cryptography/index.php | `password` | `(empty)` | - |
 | 25 | POST | https://dvwa-production-a515.up.railway.app/security.php | `security` | `low` | `seclev_submit`, `user_token` |
-| 26 | POST | https://dvwa-production-a515.up.railway.app/security.php | `user_token` | `b1ec151925197852b44c700c250c5921` | `security`, `seclev_submit` |
+| 26 | POST | https://dvwa-production-a515.up.railway.app/security.php | `user_token` | `c9ecaacdd3cb808e6cfa825cb28aeae2` | `security`, `seclev_submit` |
 | 27 | GET | https://dvwa-production-a515.up.railway.app/instructions.php | `doc` | `readme` | - |
 
 27 injection points across 15 endpoints.

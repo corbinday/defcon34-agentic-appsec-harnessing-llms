@@ -283,6 +283,18 @@ def run(target, max_requests=None, use_llm=False, use_mcp=None):
                              "payload": v["payload"], "evidence": v["evidence"],
                              "error": v["error"]} for v in verdicts]}
     _write("03_findings.json", json.dumps(summary, indent=2, ensure_ascii=False))
+
+    # The markdown is what the chatbot and the next stage read; the HTML is what
+    # a person reads. Both are rendered from this same verdict list, so they
+    # cannot tell different stories.
+    from core import report_html
+    report_html.write(
+        ARTIFACTS / "05_report.html", target=target, points=points,
+        verdicts=verdicts, elapsed=elapsed, requests_used=requests_used,
+        mode="%s + %s" % ("deep agent" if use_llm else "deterministic stages",
+                          "MCP" if use_mcp else "in-process"))
+    print("  wrote artifacts/05_report.html")
+
     print("    %d confirmed, %d requests, %.1fs"
           % (sum(1 for v in verdicts if v["confirmed"]), requests_used, elapsed))
     if mcp:
