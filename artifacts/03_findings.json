@@ -1,20 +1,10 @@
 {
   "target": "https://dvwa-production-a515.up.railway.app",
   "points_total": 27,
-  "points_tested": 10,
-  "requests_used": 184,
-  "elapsed_sec": 53.0,
+  "points_tested": 8,
+  "requests_used": 138,
+  "elapsed_sec": 77.7,
   "findings": [
-    {
-      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/",
-      "method": "GET",
-      "param": "username",
-      "vulnerable": true,
-      "technique": "error-based",
-      "payload": "'",
-      "evidence": "DB error fingerprint 'You have an error in your SQL syntax' in response: ...or</b>: Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'd41d8cd98f00b204e9800998ecf8427e'' at line 1...",
-      "error": null
-    },
     {
       "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli/",
       "method": "GET",
@@ -38,37 +28,17 @@
     {
       "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/",
       "method": "GET",
+      "param": "username",
+      "vulnerable": true,
+      "technique": "error-based",
+      "payload": "'",
+      "evidence": "DB error fingerprint 'You have an error in your SQL syntax' in response: ...or</b>: Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'd41d8cd98f00b204e9800998ecf8427e'' at line 1...",
+      "error": null
+    },
+    {
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/",
+      "method": "GET",
       "param": "password",
-      "vulnerable": false,
-      "technique": "none",
-      "payload": "",
-      "evidence": "",
-      "error": null
-    },
-    {
-      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/exec/",
-      "method": "POST",
-      "param": "ip",
-      "vulnerable": false,
-      "technique": "none",
-      "payload": "",
-      "evidence": "",
-      "error": null
-    },
-    {
-      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/csrf/",
-      "method": "GET",
-      "param": "password_new",
-      "vulnerable": false,
-      "technique": "none",
-      "payload": "",
-      "evidence": "",
-      "error": null
-    },
-    {
-      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/csrf/",
-      "method": "GET",
-      "param": "password_conf",
       "vulnerable": false,
       "technique": "none",
       "payload": "",
@@ -86,9 +56,9 @@
       "error": null
     },
     {
-      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/upload/",
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/exec/",
       "method": "POST",
-      "param": "MAX_FILE_SIZE",
+      "param": "ip",
       "vulnerable": false,
       "technique": "none",
       "payload": "",
@@ -96,9 +66,19 @@
       "error": null
     },
     {
-      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/captcha/",
+      "url": "https://dvwa-production-a515.up.railway.app/instructions.php",
+      "method": "GET",
+      "param": "doc",
+      "vulnerable": false,
+      "technique": "none",
+      "payload": "",
+      "evidence": "",
+      "error": null
+    },
+    {
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/upload/",
       "method": "POST",
-      "param": "step",
+      "param": "MAX_FILE_SIZE",
       "vulnerable": false,
       "technique": "none",
       "payload": "",

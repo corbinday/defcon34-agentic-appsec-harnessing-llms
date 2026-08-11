@@ -1,13 +1,13 @@
 {
   "target": "https://dvwa-production-a515.up.railway.app",
-  "mode": "stub+in-process",
-  "runs": 3,
+  "mode": "deep-agent+mcp",
+  "runs": 2,
   "labels": 7,
   "tp": 3,
   "fp": 0,
   "fn": 0,
-  "tn": 1,
-  "undetermined": 3,
+  "tn": 0,
+  "undetermined": 4,
   "precision": 1.0,
   "recall": 1.0,
   "f1": 1.0,
@@ -17,19 +17,18 @@
   "not_tested": [
     "/login.php?username  (not selected by triage)",
     "/security.php?security  (not selected by triage)",
-    "/vulnerabilities/sqli/?Submit  (not selected by triage)"
+    "/vulnerabilities/sqli/?Submit  (not selected by triage)",
+    "/vulnerabilities/exec/?ip  (not selected by triage)"
   ],
   "consistency": {
     "identical": true,
     "per_run_confirmed": [
       3,
-      3,
       3
     ],
     "per_run_requests": [
-      184,
-      184,
-      184
+      69,
+      138
     ]
   }
 }
