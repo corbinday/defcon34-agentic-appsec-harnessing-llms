@@ -119,17 +119,22 @@ def enumerate_endpoints(url: str, auth: dict | None = None) -> list[dict]:
                "method": "GET"|"POST",
                "param": str,          # ONE parameter per row — never a list
                "value": str,          # its original value, as seen
+               "siblings": dict,      # every OTHER field of the same form,
+                                      #   at its original value: {"Submit": "Submit"}
                "requires_auth": bool}]
     """
 
 def evaluate_sqli(url: str, method: str, param: str, context: str,
-                  original_value: str = "") -> dict:
+                  value: str = "", siblings: dict | None = None) -> dict:
     """Fire a FIXED payload set at ONE parameter and report evidence.
     This function decides the verdict. The LLM does not.
 
     context: "numeric" | "string" | "unknown"   <- the LLM classifies this
-    original_value: value seen during enumeration. Payloads are APPENDED to it,
-        so id=1 is probed as id=1' — not as id='. Empty means replace the value.
+    value:    the `value` field from enumerate_endpoints, same name on purpose.
+              Payloads are APPENDED to it, so id=1 is probed as id=1' — never
+              id='. Empty string means replace the value outright.
+    siblings: the `siblings` dict from the same row, replayed verbatim on every
+              request. NOT optional in practice — see below.
 
     Returns: {"confirmed": bool,
               "technique": "error-based"|"boolean-blind"|"time-blind"|"none",
@@ -149,6 +154,23 @@ def evaluate_sqli(url: str, method: str, param: str, context: str,
 injection point becomes untestable. Drop `context` and the LLM has no way to
 select a payload group — which destroys requirement 6, because payload choice
 moves back into the model.
+
+### `siblings` is not a nice-to-have. Measured on our instance:
+
+```
+GET /vulnerabilities/sqli/?id=1                 -> 4592 bytes, no result rendered
+GET /vulnerabilities/sqli/?id=1&Submit=Submit   -> 4651 bytes, "First name" rendered
+```
+
+DVWA guards the query with `isset($_GET['Submit'])`. Send the injected parameter
+by itself and **the SQL never executes** — the page returns 200, the payload
+looks harmless, and we report the most obvious SQL injection in the application
+as not vulnerable. A one-parameter-at-a-time probe that drops the rest of the
+form is not a quiet inefficiency; it is a guaranteed false negative.
+
+So: **one parameter carries the payload, every sibling field is replayed at its
+original value.** The crawler is what knows those values, which is why they ride
+along on the same row instead of being rediscovered later.
 
 ### Authentication belongs to the tool layer, not to an argument
 
@@ -190,6 +212,12 @@ expected *findings*, and the chain stalled. Freeze the shapes before writing log
 1. **The payload list is fixed and lives in code.** The LLM never invents payloads.
 2. **The LLM classifies context; the code selects payloads from that.**
    Same classification in → same requests out → same result across runs.
+   **A numeric-looking value does not mean a numeric context.** DVWA at level
+   low builds `WHERE user_id = '$id'` — quoted, even though `id=1` looks like an
+   integer. Classification describes *what the value looks like*; the code
+   compensates by trying the string group as well before giving up. If we let
+   "looks numeric" pick numeric payloads only, we miss the blind SQLi page
+   outright.
 3. **A verdict requires evidence returned by the tool.** Reading a response and
    concluding "this looks injectable" is not evidence.
 4. **Silence at one stage means undetermined, not safe.** Report *not vulnerable*
@@ -411,14 +439,18 @@ Verify: `enumerate_endpoints("http://localhost:8080")` returns rows including
    def enumerate_endpoints(url, auth=None):
        return [
            {"url": f"{url}/vulnerabilities/sqli/", "method": "GET",
-            "param": "id", "value": "1", "requires_auth": True},
+            "param": "id", "value": "1",
+            "siblings": {"Submit": "Submit"}, "requires_auth": True},
            {"url": f"{url}/vulnerabilities/sqli/", "method": "GET",
-            "param": "Submit", "value": "Submit", "requires_auth": True},
+            "param": "Submit", "value": "Submit",
+            "siblings": {"id": "1"}, "requires_auth": True},
            {"url": f"{url}/login.php", "method": "POST",
-            "param": "username", "value": "admin", "requires_auth": False},
+            "param": "username", "value": "admin",
+            "siblings": {"password": "password", "Login": "Login"},
+            "requires_auth": False},
        ]
 
-   def evaluate_sqli(url, method, param, context, original_value=""):
+   def evaluate_sqli(url, method, param, context, value="", siblings=None):
        if param == "id":
            return {"confirmed": True, "technique": "error-based",
                    "evidence": "You have an error in your SQL syntax", "payload": "'",
