@@ -43,4 +43,15 @@ DVWA_CREDS = {"username": "admin", "password": "password"}
 
 # Triage picks at most this many points to confirm. The cap is the difference
 # between our tool and a scanner that fires at everything.
-MAX_CANDIDATES = 6
+#
+# 10, not 6. The crawler now finds 28 points on DVWA, and at 6 the LLM was
+# spending two of its slots on guesses -- it argued that `doc` on instructions.php
+# "often becomes a database query" and that `step` on the captcha page "often maps
+# to a database lookup". Both are wrong, and with only 6 slots a single wrong
+# guess pushes a real finding out. The model also reranks between runs, so a tight
+# cap turns ordinary rank jitter into a lost vulnerability and a failed
+# consistency check.
+#
+# The cap still does its job: 10 of 28 is 36% of the surface, and at 12 requests
+# per point that is 120 against a budget of 300.
+MAX_CANDIDATES = 10

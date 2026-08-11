@@ -1,5 +1,6 @@
 {
   "target": "https://dvwa-production-a515.up.railway.app",
+  "mode": "stub",
   "runs": 2,
   "labels": 7,
   "tp": 3,
@@ -25,8 +26,8 @@
       3
     ],
     "per_run_requests": [
-      52,
-      52
+      184,
+      184
     ]
   }
 }

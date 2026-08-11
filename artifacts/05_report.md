@@ -1,7 +1,7 @@
 # SQL injection assessment - https://dvwa-production-a515.up.railway.app
 
-28 injection points enumerated, 6 tested, **3 confirmed**.
-Wall time 21.6s.
+28 injection points enumerated, 10 tested, **3 confirmed**.
+Wall time 53.4s.
 
 ## Confirmed findings
 
@@ -25,6 +25,6 @@ Wall time 21.6s.
 
 - URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli_blind/
 - Payload: `' AND '1'='1  vs  ' AND '1'='2`
-- Requests used: 8
+- Requests used: 15
 - Evidence: asymmetry confirmed - baseline 4703 bytes / TRUE 4703 / FALSE 4709, compared by content (TRUE matches baseline, FALSE differs)
 - Fix: bind this parameter as a query placeholder. In PHP, `mysqli_prepare` with `bind_param`, never string concatenation.

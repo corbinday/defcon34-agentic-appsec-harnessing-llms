@@ -1,0 +1,52 @@
+{
+  "_about": "Strings that only a database engine produces. Finding one in a response body is what confirms error-based injection - see references/error-based.md. Substring match, case-insensitive.",
+  "_rule": "A signature must be impossible to produce by ordinary application text. 'SyntaxError' or 'error' would fire on any framework stack trace and turn a clean page into a finding, so they are not here.",
+  "_dbms_use": "The dbms field doubles as a fingerprint: whichever engine's signature comes back tells the prober which dialect to use for stages 2 and 3, instead of guessing.",
+  "signatures": [
+    {"match": "You have an error in your SQL syntax", "dbms": "mysql", "note": "MySQL/MariaDB parser, error 1064"},
+    {"match": "check the manual that corresponds to your MariaDB", "dbms": "mysql", "note": "MariaDB server version banner in the 1064 text"},
+    {"match": "check the manual that corresponds to your MySQL", "dbms": "mysql", "note": "MySQL server version banner in the 1064 text"},
+    {"match": "mysql_fetch_array()", "dbms": "mysql", "note": "PHP mysql_* driver on a failed result"},
+    {"match": "mysqli_fetch", "dbms": "mysql", "note": "PHP mysqli driver on a failed result"},
+    {"match": "supplied argument is not a valid MySQL", "dbms": "mysql", "note": "classic PHP warning when the query returned false"},
+    {"match": "Unknown column", "dbms": "mysql", "note": "MySQL error 1054"},
+    {"match": "Warning: mysql", "dbms": "mysql", "note": "PHP warning prefix from the mysql driver"},
+    {"match": "XPATH syntax error", "dbms": "mysql", "note": "extractvalue/updatexml parse failure. We do not send those, but an application might"},
+    {"match": "The used SELECT statements have a different number of columns", "dbms": "mysql", "note": "MySQL error 1222"},
+    {"match": "Truncated incorrect", "dbms": "mysql", "note": "MySQL type coercion complaint"},
+
+    {"match": "PG::SyntaxError", "dbms": "postgres", "note": "Ruby pg driver"},
+    {"match": "org.postgresql.util.PSQLException", "dbms": "postgres", "note": "JDBC driver"},
+    {"match": "syntax error at or near", "dbms": "postgres", "note": "PostgreSQL parser"},
+    {"match": "unterminated quoted string at or near", "dbms": "postgres", "note": "PostgreSQL lexer, exactly what a stray quote produces"},
+    {"match": "invalid input syntax for type", "dbms": "postgres", "note": "PostgreSQL cast failure"},
+    {"match": "psycopg2.errors", "dbms": "postgres", "note": "Python driver"},
+
+    {"match": "Unclosed quotation mark after the character string", "dbms": "mssql", "note": "SQL Server error 105, the single-quote tell"},
+    {"match": "Incorrect syntax near", "dbms": "mssql", "note": "SQL Server error 102"},
+    {"match": "Microsoft OLE DB Provider for SQL Server", "dbms": "mssql", "note": "classic ASP stack"},
+    {"match": "System.Data.SqlClient.SqlException", "dbms": "mssql", "note": ".NET driver"},
+    {"match": "Conversion failed when converting", "dbms": "mssql", "note": "SQL Server cast failure, error 245"},
+
+    {"match": "ORA-00933", "dbms": "oracle", "note": "SQL command not properly ended"},
+    {"match": "ORA-00921", "dbms": "oracle", "note": "unexpected end of SQL command"},
+    {"match": "ORA-01756", "dbms": "oracle", "note": "quoted string not properly terminated"},
+    {"match": "ORA-00907", "dbms": "oracle", "note": "missing right parenthesis"},
+    {"match": "ORA-01722", "dbms": "oracle", "note": "invalid number, the numeric-context tell"},
+    {"match": "quoted string not properly terminated", "dbms": "oracle", "note": "ORA-01756 text form"},
+    {"match": "java.sql.SQLSyntaxErrorException", "dbms": "oracle", "note": "JDBC, common on Oracle stacks"},
+
+    {"match": "SQLite3::SQLException", "dbms": "sqlite", "note": "Ruby driver"},
+    {"match": "sqlite3.OperationalError", "dbms": "sqlite", "note": "Python driver"},
+    {"match": "unrecognized token", "dbms": "sqlite", "note": "SQLite lexer, what a stray quote produces"},
+    {"match": "SQLITE_ERROR", "dbms": "sqlite", "note": "C API error code surfaced by a wrapper"},
+    {"match": "no such column", "dbms": "sqlite", "note": "SQLite name resolution"},
+
+    {"match": "SQLSTATE[", "dbms": "any", "note": "PDO exception prefix. The engine is in the code that follows"},
+    {"match": "SQLSTATE=", "dbms": "any", "note": "DB2 and ODBC form"},
+    {"match": "JDBCExceptionReporter", "dbms": "any", "note": "Hibernate surfacing a driver error"},
+    {"match": "SqlException", "dbms": "any", "note": "generic .NET data exception"},
+    {"match": "DatabaseError", "dbms": "any", "note": "Django and several Python ORMs"},
+    {"match": "SQLAlchemy", "dbms": "any", "note": "SQLAlchemy traceback leaking the failed statement"}
+  ]
+}

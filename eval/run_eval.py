@@ -2,13 +2,20 @@
 
 OWNER: tprud9412.
 
-    python eval/run_eval.py --target URL            score one run
-    python eval/run_eval.py --target URL --runs 3   score three, then diff them
+    python eval/run_eval.py --target URL                  score one stub run
+    python eval/run_eval.py --target URL --runs 3         score three, then diff them
+    python eval/run_eval.py --target URL --llm --runs 3   score the deep agent
 
 Consistency is a graded requirement and the easiest one to fake, so it is
 measured here rather than asserted in a slide: the same target is run N times
 and the confirmed sets are compared. Identical sets is the claim; anything else
 prints what moved.
+
+**--llm is what makes the score mean anything.** Without it stages 2 and 4 are
+deterministic Python, so a perfect score measures a rule table, not the agent we
+are presenting -- and the consistency number is trivially perfect because no
+model was involved. The path that was measured is recorded in the output as
+`mode`, so a number can never be quoted without saying which run produced it.
 """
 
 from __future__ import annotations
@@ -35,14 +42,18 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--target", default=config.DEFAULT_TARGET)
     ap.add_argument("--runs", type=int, default=1)
+    ap.add_argument("--llm", action="store_true",
+                    help="score the deep agent instead of the Python stubs")
     args = ap.parse_args()
 
+    mode = "deep-agent" if args.llm else "stub"
     summaries = []
     for i in range(args.runs):
-        print("\n===== run %d/%d =====" % (i + 1, args.runs))
-        summaries.append(pipeline.run(args.target))
+        print("\n===== run %d/%d (%s) =====" % (i + 1, args.runs, mode))
+        summaries.append(pipeline.run(args.target, use_llm=args.llm))
 
-    print("\n===== score (run 1 of %d, %d labels) =====" % (args.runs, len(ALL)))
+    print("\n===== score (run 1 of %d, %d labels, %s) ====="
+          % (args.runs, len(ALL), mode))
     score = grade(summaries[0]["findings"])
     print(score.report())
 
@@ -60,7 +71,10 @@ def main():
             if missing:
                 print("    UNSTABLE %s  absent from run(s) %s" % (item, missing))
 
-    out = {"target": args.target, "runs": args.runs,
+    # `mode` first, and never omitted: a score with no path attached is the one
+    # way this file can mislead. "stub" means no model ran, so both the F1 and
+    # the consistency line describe a rule table.
+    out = {"target": args.target, "mode": mode, "runs": args.runs,
            "labels": len(ALL),
            "tp": score.tp, "fp": score.fp, "fn": score.fn, "tn": score.tn,
            "undetermined": score.undetermined,

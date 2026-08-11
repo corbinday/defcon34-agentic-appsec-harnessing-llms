@@ -14,6 +14,7 @@ stylistic one.
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 from core import verdict as V
@@ -24,6 +25,10 @@ _PAYLOADS_PATH = (Path(__file__).resolve().parent.parent
                   / "skills" / "sqli-payloads" / "scripts" / "payloads.py")
 _spec = importlib.util.spec_from_file_location("sqli_payloads", _PAYLOADS_PATH)
 payloads = importlib.util.module_from_spec(_spec)
+# Register before executing. dataclasses resolves a class's module through
+# sys.modules, and a module loaded this way is not in there yet, so @dataclass
+# raises AttributeError on None.
+sys.modules["sqli_payloads"] = payloads
 _spec.loader.exec_module(payloads)
 
 # Used when the crawler saw no original value. "1" because record lookups are

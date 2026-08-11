@@ -1,109 +1,179 @@
-I'll proceed with my domain expertise in SQL injection testing. Based on the endpoint list and the application context (DVWA - Damn Vulnerable Web Application), I can rank these parameters effectively.
+Perfect! Now I have the skill instructions. Let me analyze the 28 injection points according to the endpoint-discovery skill criteria.
 
 ## Analysis
 
 **TOTAL_POINTS: 28**
-**SELECTED: 6**
 
-### Ranking Rationale:
+### Ranking by likelihood to reach a database:
 
-**HIGH PRIORITY (Database-facing):**
-- **POINT 14 & 16** (id parameters in /sqli/ and /sqli_blind/): These are explicitly in SQL injection vulnerability pages, most likely to reach database queries
-- **POINT 2 & 3** (username/password in /brute/): Authentication queries typically hit the database
-- **POINT 28** (doc in /instructions.php): File inclusion parameters often become database queries in dynamic content systems
-- **POINT 11** (step in /captcha/): Numeric parameters in forms often map to database lookups
+**HIGH PRIORITY** (record lookup, search, sorting, or numeric values that change response):
+- POINT 14: `id` parameter on `/vulnerabilities/sqli/` - classic SQL injection point, empty value suggests numeric
+- POINT 16: `id` parameter on `/vulnerabilities/sqli_blind/` - blind SQL injection endpoint, empty value suggests numeric
+- POINT 9: `page` parameter on `/vulnerabilities/fi/` - file inclusion but could be database-backed, value is `include.php`
+- POINT 28: `doc` parameter on `/instructions.php` - documentation lookup, value is `readme`
 
-**MEDIUM PRIORITY (Possible database):**
-- POINT 1, 21, 27 (tokens): May be validated against database
-- POINT 5 (ip in /exec/): Command injection focus, not database
-- POINT 9 (page in /fi/): File inclusion, not database
-- POINT 10 (MAX_FILE_SIZE): Upload handling, not database
-- POINT 12, 13, 23, 24, 25 (password/message fields): May hit database but context unclear
-- POINT 18, 19, 20 (XSS pages): XSS focus, not database
-- POINT 22 (phrase): JavaScript challenge, not database
-- POINT 26 (security): Settings, may not hit database
-- POINT 4, 6, 15, 17 (button fields): Not injection points
+**MEDIUM PRIORITY** (ordinary text fields, form inputs):
+- POINT 2: `username` on brute force page - authentication bypass classic, empty value
+- POINT 3: `password` on brute force page - authentication bypass, empty value
+- POINT 11: `step` parameter on captcha page - numeric value `1`, likely state tracking
+- POINT 12: `password_new` on captcha page - password change, could be database-backed
+- POINT 13: `password_conf` on captcha page - password confirmation
+- POINT 22: `phrase` on javascript page - value is `ChangeMe`, text field
+- POINT 23: `message` on cryptography page - empty value, text field
+
+**LOW PRIORITY** (control fields, fixed constants, static assets):
+- POINT 1: `user_token` - CSRF token, fixed constant
+- POINT 4: `Login` button - control field
+- POINT 5: `ip` parameter on exec page - command injection not SQL, empty value
+- POINT 6: `Submit` button - control field
+- POINT 7: `password_new` on CSRF page - CSRF vulnerability, not SQL
+- POINT 8: `password_conf` on CSRF page - CSRF vulnerability
+- POINT 10: `MAX_FILE_SIZE` - file upload control, numeric constant
+- POINT 15: `Submit` button - control field
+- POINT 17: `Submit` button - control field
+- POINT 18: `default` on XSS page - XSS vulnerability, value is `English`
+- POINT 19: `name` on XSS page - XSS vulnerability, empty value
+- POINT 20: `include` on CSP page - CSP/XSS, empty value
+- POINT 21: `token` on javascript page - CSRF token, fixed constant
+- POINT 24: `direction` on cryptography - fixed list value `encode`
+- POINT 25: `password` on cryptography - empty value, likely not DB-backed
+- POINT 26: `security` on security page - fixed list value `low`
+- POINT 27: `user_token` - CSRF token, fixed constant
+
+### Selection Strategy:
+I'll select the **10 most promising** parameters for SQL injection testing:
+
+1. **POINT 14** - `/vulnerabilities/sqli/` id parameter (HIGH - explicit SQL injection endpoint)
+2. **POINT 16** - `/vulnerabilities/sqli_blind/` id parameter (HIGH - explicit blind SQL injection endpoint)
+3. **POINT 2** - brute force username (MEDIUM - authentication bypass classic)
+4. **POINT 3** - brute force password (MEDIUM - authentication bypass classic)
+5. **POINT 28** - instructions doc parameter (HIGH - documentation lookup, likely DB-backed)
+6. **POINT 9** - file inclusion page parameter (MEDIUM - could be database-backed)
+7. **POINT 11** - captcha step parameter (MEDIUM - numeric state tracking)
+8. **POINT 12** - captcha password_new (MEDIUM - password change, DB-backed)
+9. **POINT 22** - javascript phrase parameter (MEDIUM - text field, could be logged/stored)
+10. **POINT 23** - cryptography message parameter (MEDIUM - text field, could be processed)
 
 ---
+
+**SELECTED: 10**
 
 URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli/
 METHOD: GET
 PARAM: id
 PRIORITY: high
 CONTEXT: numeric
-CONTEXT_REASON: Original value is empty but parameter name "id" and page context indicate numeric database identifier
+CONTEXT_REASON: Empty value suggests numeric ID lookup parameter
 DBMS: mysql
 DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
 DEPTH: deep
-REASON: Explicit SQL injection vulnerability page; id parameters are primary injection vectors in database queries
+REASON: Explicit SQL injection endpoint; classic record lookup parameter
 REQUIRES_AUTH: false
-
----
 
 URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli_blind/
 METHOD: GET
 PARAM: id
 PRIORITY: high
 CONTEXT: numeric
-CONTEXT_REASON: Original value is empty but parameter name "id" indicates numeric database identifier
+CONTEXT_REASON: Empty value suggests numeric ID lookup parameter
 DBMS: mysql
 DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
 DEPTH: deep
-REASON: Explicit blind SQL injection vulnerability page; requires deep testing with time-based and boolean techniques
+REASON: Explicit blind SQL injection endpoint; classic record lookup parameter
 REQUIRES_AUTH: false
-
----
-
-URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/
-METHOD: GET
-PARAM: username
-PRIORITY: high
-CONTEXT: string
-CONTEXT_REASON: Original value is empty; username fields are typically string-quoted in authentication queries
-DBMS: mysql
-DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
-DEPTH: standard
-REASON: Authentication parameters commonly reach database; username is first injection point in login forms
-REQUIRES_AUTH: false
-
----
-
-URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/
-METHOD: GET
-PARAM: password
-PRIORITY: high
-CONTEXT: string
-CONTEXT_REASON: Original value is empty; password fields are typically string-quoted in authentication queries
-DBMS: mysql
-DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
-DEPTH: standard
-REASON: Authentication parameters commonly reach database; password is second injection point in login forms
-REQUIRES_AUTH: false
-
----
 
 URL: https://dvwa-production-a515.up.railway.app/instructions.php
 METHOD: GET
 PARAM: doc
 PRIORITY: high
 CONTEXT: string
-CONTEXT_REASON: Original value "readme" is a string identifier for dynamic content loading
+CONTEXT_REASON: Original value is 'readme', a string identifier
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: standard
+REASON: Documentation lookup parameter likely backed by database query
+REQUIRES_AUTH: false
+
+URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/
+METHOD: GET
+PARAM: username
+PRIORITY: medium
+CONTEXT: string
+CONTEXT_REASON: Empty value but parameter name implies text input
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: standard
+REASON: Authentication endpoint; username parameter is classic SQL injection point for login bypass
+REQUIRES_AUTH: false
+
+URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/
+METHOD: GET
+PARAM: password
+PRIORITY: medium
+CONTEXT: string
+CONTEXT_REASON: Empty value but parameter name implies text input
 DBMS: mysql
 DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
 DEPTH: quick
-REASON: File/content inclusion parameters often map to database lookups for dynamic page content
+REASON: Authentication endpoint; password parameter may be vulnerable to SQL injection
 REQUIRES_AUTH: false
 
----
+URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/fi/
+METHOD: GET
+PARAM: page
+PRIORITY: medium
+CONTEXT: string
+CONTEXT_REASON: Original value is 'include.php', a filename string
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: standard
+REASON: File inclusion parameter may be database-backed for page selection logic
+REQUIRES_AUTH: false
 
 URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/captcha/
 METHOD: POST
 PARAM: step
-PRIORITY: high
+PRIORITY: medium
 CONTEXT: numeric
-CONTEXT_REASON: Original value "1" is clearly numeric; step counters typically map to database state tracking
+CONTEXT_REASON: Original value is 1, a numeric step counter
 DBMS: mysql
 DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
 DEPTH: quick
-REASON: Numeric form parameters often reach database for session/state validation in multi-step forms
+REASON: Numeric state parameter in form; may be used in database query for session tracking
+REQUIRES_AUTH: false
+
+URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/captcha/
+METHOD: POST
+PARAM: password_new
+PRIORITY: medium
+CONTEXT: string
+CONTEXT_REASON: Empty value but parameter name implies text input for password
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: standard
+REASON: Password change parameter likely processed through database update query
+REQUIRES_AUTH: false
+
+URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/javascript/
+METHOD: POST
+PARAM: phrase
+PRIORITY: medium
+CONTEXT: string
+CONTEXT_REASON: Original value is 'ChangeMe', a text string
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: quick
+REASON: Text parameter that may be logged or stored in database
+REQUIRES_AUTH: false
+
+URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/cryptography/index.php
+METHOD: POST
+PARAM: message
+PRIORITY: medium
+CONTEXT: string
+CONTEXT_REASON: Empty value but parameter name implies text input
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: quick
+REASON: Message parameter may be processed through database query
 REQUIRES_AUTH: false
