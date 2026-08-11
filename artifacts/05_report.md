@@ -1,7 +1,7 @@
 # SQL injection assessment - https://dvwa-production-a515.up.railway.app
 
 27 injection points enumerated, 10 tested, **3 confirmed**.
-Wall time 58.2s.
+Wall time 57.2s.
 
 ## Confirmed findings
 
