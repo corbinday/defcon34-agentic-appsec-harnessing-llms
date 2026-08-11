@@ -20,3 +20,9 @@ beautifulsoup4      # form and parameter extraction
 
 # Tests
 pytest
+
+# MCP transport. Pinned below 2.0 on purpose: mcp 2.0.0 removed
+# mcp.server.fastmcp entirely (it exposes MCPServer/Server instead), so an
+# unpinned install silently gets a version mcp_server.py cannot import. A fresh
+# venv hits this, not the machine that already had 1.x.
+mcp>=1.10,<2
