@@ -53,7 +53,15 @@ def _result(confirmed, technique, evidence, payload, stage, used, error=None):
 
 def evaluate_sqli(url, method, param, context, value="", siblings=None, session=None):
     if session is None:
-        raise ValueError("evaluate_sqli needs a core.session.Session")
+        # Standalone call, per the verify line in AGENTS.md section 5. The
+        # pipeline always passes its own session, so this branch never runs
+        # during a real run. Deliberately outside the try below: a login failure
+        # is not an "undetermined parameter", it is a broken setup, and burying
+        # it in the `error` field would read as "the point was not reachable".
+        from core.session import default_session
+        from urllib.parse import urlsplit
+        parts = urlsplit(url)
+        session = default_session("%s://%s" % (parts.scheme, parts.netloc))
     start = session.requests_used
     used = lambda: session.requests_used - start
 

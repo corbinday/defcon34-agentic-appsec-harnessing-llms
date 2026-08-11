@@ -125,16 +125,30 @@ def enumerate_endpoints(url: str, auth: dict | None = None) -> list[dict]:
     """
 
 def evaluate_sqli(url: str, method: str, param: str, context: str,
-                  value: str = "", siblings: dict | None = None) -> dict:
-    """Fire a FIXED payload set at ONE parameter and report evidence.
+                  value: str = "", siblings: dict | None = None,
+                  dbms: str = "unknown", depth: str = "standard") -> dict:
+    """Fire a FIXED payload GROUP at ONE parameter and report evidence.
     This function decides the verdict. The LLM does not.
 
-    context: "numeric" | "string" | "unknown"   <- the LLM classifies this
+    The LLM picks the GROUP. The code expands that group into an exact,
+    ordered list of payloads. Same group in -> same requests out, which is
+    what keeps runs reproducible no matter how large the corpus grows.
+
+    context: "numeric" | "string" | "double-quoted" | "paren" | "unknown"
+    dbms:    "mysql" | "postgres" | "mssql" | "oracle" | "sqlite" | "unknown"
+             A hint, not a promise. "unknown" fires the DBMS-agnostic group
+             first and narrows once an error fingerprint identifies the engine.
+    depth:   "quick"    stage 1 only, DBMS-agnostic  - cheapest sweep
+             "standard" stages 1-2, judged dbms + agnostic
+             "deep"     stages 1-3, all dialects. Slow. Say why in the report.
     value:    the `value` field from enumerate_endpoints, same name on purpose.
               Payloads are APPENDED to it, so id=1 is probed as id=1' — never
               id='. Empty string means replace the value outright.
     siblings: the `siblings` dict from the same row, replayed verbatim on every
               request. NOT optional in practice — see below.
+
+    dbms and depth are optional and default to the old behaviour, so a caller
+    written before they existed keeps working unchanged.
 
     Returns: {"confirmed": bool,
               "technique": "error-based"|"boolean-blind"|"time-blind"|"none",
@@ -154,6 +168,26 @@ def evaluate_sqli(url: str, method: str, param: str, context: str,
 injection point becomes untestable. Drop `context` and the LLM has no way to
 select a payload group — which destroys requirement 6, because payload choice
 moves back into the model.
+
+### The LLM picks the group. It never picks a payload.
+
+This is the line that makes a large corpus safe. Handing a model a thousand
+payloads and asking it to choose produces a different set of requests on every
+run, and requirement 6 is gone. Instead:
+
+```
+LLM emits      ->   (context, dbms, depth)          three labels
+code expands   ->   an exact ordered payload list   from skills/sqli-payloads/data/
+```
+
+The model's judgement still matters, and it got *more* room, not less — it used
+to choose between numeric and string, and now it also reasons about which engine
+is behind the page and how hard to push. But the mapping from judgement to
+requests is a lookup, so the same judgement always produces the same traffic.
+
+**Corollary: growing the corpus never costs consistency.** Adding a dialect is a
+new entry in a JSON file. That is why the payload data lives in the skill folder
+as data rather than as literals inside a Python module.
 
 ### `siblings` is not a nice-to-have. Measured on our instance:
 
@@ -334,8 +368,16 @@ python agent/pipeline.py --target "$TARGET"
 python eval/run_eval.py --target "$TARGET" --runs 3   # scores + consistency evidence
 
 python -c "from core.browser import enumerate_endpoints; print(len(enumerate_endpoints('$TARGET')))"
-python -c "from core.prober import evaluate_sqli; print(evaluate_sqli('$TARGET/vulnerabilities/sqli/','GET','id','numeric','1'))"
+
+# siblings is the 6th argument and it is NOT optional here. Drop it and DVWA's
+# isset($_GET['Submit']) guard means the query never runs: the call returns
+# confirmed=False on the most obvious SQL injection in the app. Verified.
+python -c "from core.prober import evaluate_sqli; print(evaluate_sqli('$TARGET/vulnerabilities/sqli/','GET','id','numeric','1',{'Submit':'Submit'}))"
 ```
+
+Called with no session of their own, both functions build one and log in with the
+credentials in `agent/config.py` (`core.session.default_session`). The pipeline
+always passes its own session, so it never takes that path.
 
 On PowerShell the same lines work with `$TARGET = "http://localhost:8080"` and
 `"$TARGET"` unchanged.

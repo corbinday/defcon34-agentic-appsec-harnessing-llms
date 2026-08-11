@@ -100,3 +100,33 @@ class Session:
     def is_logged_in(self):
         resp = self.get("/index.php")
         return "login.php" not in resp.url
+
+
+def default_session(base_url, auth=None):
+    """Build and log in one Session from agent/config.py defaults.
+
+    The pipeline always creates its own session at startup and hands it to both
+    tools -- that path is unchanged and does not come through here. This exists
+    so the standalone verify commands in AGENTS.md section 5 work, e.g.
+
+        enumerate_endpoints("http://localhost:8080")
+        evaluate_sqli(url, "GET", "id", "numeric", "1")
+
+    `auth` overrides the default credentials, which is exactly what the contract
+    says the argument is for. A failed login raises: an unauthenticated crawl
+    silently reports every page behind the login as clean.
+    """
+    from agent import config      # late: core/ must not need agent/ to import
+
+    session = Session(base_url, config.ALLOWED_TARGETS,
+                      max_requests=config.MAX_REQUESTS,
+                      delay=config.REQUEST_DELAY_SEC,
+                      timeout=config.HTTP_TIMEOUT_SEC)
+    creds = dict(config.DVWA_CREDS)
+    if auth:
+        creds.update(auth)
+    if not session.login(**creds):
+        raise RuntimeError(
+            "login to %s failed as %r. Pass an already logged-in Session, or fix "
+            "the credentials in agent/config.py." % (base_url, creds["username"]))
+    return session

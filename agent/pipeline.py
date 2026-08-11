@@ -1,9 +1,14 @@
 """The 4-stage chain. OWNER: Mike.
 
-**Stages 2 and 4 are stand-ins.** They are deterministic Python today so the
-whole chain completes and produces artifacts. Mike replaces them with the deep
-agent: `create_deep_agent(...)` with a triage subagent and a report subagent,
-driven by the prompts already written in agent/prompts.py.
+**Stages 2 and 4 have two implementations.** By default they are deterministic
+Python stand-ins, so the whole chain completes and produces artifacts on a
+laptop with no agent stack and no AWS credentials. Pass **--llm** and they run
+through agent/deep_agent.py instead: `create_deep_agent(...)` with a triage
+subagent and a report subagent, driven by the prompts already written in
+agent/prompts.py. The stubs stay as the fallback -- do not delete them.
+
+    python agent/pipeline.py --target URL          stubs, works offline
+    python agent/pipeline.py --target URL --llm    deep agent, needs Bedrock
 
 The seam is deliberate. Stage 2 has one job -- turn a list of points into a
 ranked subset with a context label -- and stage 4 has one job: turn verdicts into
@@ -150,8 +155,27 @@ def _write(name, text):
     print("  wrote artifacts/%s" % name)
 
 
-def run(target, max_requests=None):
+def _llm_stages():
+    """Load the deep agent. Imported here, not at module scope, so the default
+    (stub) path keeps running on a laptop with no agent stack installed."""
+    try:
+        from agent.deep_agent import llm_report, llm_triage, preflight
+        preflight()          # raises now, before stage 1 spends a request
+    except Exception as exc:
+        raise SystemExit(
+            "--llm cannot run here:\n%s\n"
+            "Without --llm the pipeline runs stages 2 and 4 as Python stubs, "
+            "which needs none of the above." % exc)
+    return llm_triage, llm_report
+
+
+def run(target, max_requests=None, use_llm=False):
     started = time.time()
+    # Fail before the first request if --llm cannot be honoured. Discovering a
+    # missing dependency after stage 3 has spent the request budget is the worst
+    # possible time to discover it.
+    llm_triage, llm_report = _llm_stages() if use_llm else (None, None)
+
     session = Session(target, config.ALLOWED_TARGETS,
                       max_requests=max_requests or config.MAX_REQUESTS,
                       delay=config.REQUEST_DELAY_SEC, timeout=config.HTTP_TIMEOUT_SEC)
@@ -163,16 +187,20 @@ def run(target, max_requests=None):
     points = stage1_enumerate(session, target)
     print("    %d injection points" % len(points))
 
-    print("[2] triage")
-    candidates = stage2_triage(points)
+    print("[2] triage%s" % (" (LLM)" if use_llm else " (stub)"))
+    candidates = (llm_triage(points, target, session) if use_llm
+                  else stage2_triage(points))
     print("    %d of %d selected" % (len(candidates), len(points)))
 
     print("[3] confirm")
     verdicts = stage3_confirm(session, candidates)
 
     elapsed = time.time() - started
-    print("[4] report")
-    stage4_report(target, points, verdicts, elapsed)
+    print("[4] report%s" % (" (LLM)" if use_llm else " (stub)"))
+    if use_llm:
+        llm_report(verdicts, target, session, points=points, elapsed=elapsed)
+    else:
+        stage4_report(target, points, verdicts, elapsed)
 
     summary = {"target": target, "points_total": len(points),
                "points_tested": len(verdicts), "requests_used": session.requests_used,
@@ -191,5 +219,10 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--target", default=config.DEFAULT_TARGET)
     ap.add_argument("--max-requests", type=int, default=None)
+    ap.add_argument("--llm", action="store_true",
+                    help="run stages 2 and 4 through the deep agent "
+                         "(agent/deep_agent.py) instead of the Python stubs. "
+                         "Needs 'pip install -r requirements.txt' plus AWS "
+                         "credentials; without it the stubs run as before.")
     a = ap.parse_args()
-    run(a.target, a.max_requests)
+    run(a.target, a.max_requests, use_llm=a.llm)

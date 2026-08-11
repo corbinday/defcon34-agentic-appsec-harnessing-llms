@@ -1,0 +1,32 @@
+SUMMARY: The assessment confirmed three SQL injection vulnerabilities across DVWA's injection endpoints. Two vulnerabilities use error-based techniques on numeric parameters, while one uses boolean-blind injection on a string parameter. The application fails to sanitize user input before constructing SQL queries.
+
+POINTS_TESTED: 6
+
+CONFIRMED_COUNT: 3
+
+FINDING_URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli/
+FINDING_METHOD: GET
+FINDING_PARAM: id
+FINDING_TECHNIQUE: error-based
+FINDING_SEVERITY: critical
+FINDING_EVIDENCE: DB error fingerprint 'You have an error in your SQL syntax' in response: ...or</b>: Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ''1''' at line 1 in /var/www/html/vulnerabilit...
+FINDING_PAYLOAD: '
+FINDING_REMEDIATION: Use prepared statements with parameterized queries. Replace direct string concatenation in SQL queries with mysqli prepared statements using bind_param() or use an ORM that handles parameterization automatically.
+
+FINDING_URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli_blind/
+FINDING_METHOD: GET
+FINDING_PARAM: id
+FINDING_TECHNIQUE: boolean-blind
+FINDING_SEVERITY: critical
+FINDING_EVIDENCE: asymmetry confirmed - baseline 4703 bytes / TRUE 4703 / FALSE 4709, compared by content (TRUE matches baseline, FALSE differs)
+FINDING_PAYLOAD: ' AND '1'='1  vs  ' AND '1'='2
+FINDING_REMEDIATION: Use prepared statements with parameterized queries. Replace direct string concatenation in SQL queries with mysqli prepared statements using bind_param() or use an ORM that handles parameterization automatically.
+
+FINDING_URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/
+FINDING_METHOD: GET
+FINDING_PARAM: username
+FINDING_TECHNIQUE: error-based
+FINDING_SEVERITY: critical
+FINDING_EVIDENCE: DB error fingerprint 'You have an error in your SQL syntax' in response: ...or</b>: Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'd41d8cd98f00b204e9800998ecf8427e'' at line 1...
+FINDING_PAYLOAD: '
+FINDING_REMEDIATION: Use prepared statements with parameterized queries. Replace direct string concatenation in SQL queries with mysqli prepared statements using bind_param() or use an ORM that handles parameterization automatically.

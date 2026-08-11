@@ -1,10 +1,20 @@
 {
   "target": "https://dvwa-production-a515.up.railway.app",
-  "points_total": 12,
+  "points_total": 28,
   "points_tested": 6,
-  "requests_used": 58,
-  "elapsed_sec": 14.3,
+  "requests_used": 52,
+  "elapsed_sec": 21.6,
   "findings": [
+    {
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/",
+      "method": "GET",
+      "param": "username",
+      "vulnerable": true,
+      "technique": "error-based",
+      "payload": "'",
+      "evidence": "DB error fingerprint 'You have an error in your SQL syntax' in response: ...or</b>: Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'd41d8cd98f00b204e9800998ecf8427e'' at line 1...",
+      "error": null
+    },
     {
       "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli/",
       "method": "GET",
@@ -28,16 +38,6 @@
     {
       "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/",
       "method": "GET",
-      "param": "username",
-      "vulnerable": true,
-      "technique": "error-based",
-      "payload": "'",
-      "evidence": "DB error fingerprint 'You have an error in your SQL syntax' in response: ...or</b>: Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'd41d8cd98f00b204e9800998ecf8427e'' at line 1...",
-      "error": null
-    },
-    {
-      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/",
-      "method": "GET",
       "param": "password",
       "vulnerable": false,
       "technique": "none",
@@ -56,9 +56,9 @@
       "error": null
     },
     {
-      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/xss_r/",
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/csrf/",
       "method": "GET",
-      "param": "name",
+      "param": "password_new",
       "vulnerable": false,
       "technique": "none",
       "payload": "",
