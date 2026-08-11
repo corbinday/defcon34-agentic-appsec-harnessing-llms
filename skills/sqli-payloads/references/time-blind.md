@@ -28,14 +28,18 @@ SELECT * FROM users WHERE id = '1' AND SLEEP(5)
 **MySQL / MariaDB** (DVWA target)
 
 ```
-' AND SLEEP(5)--<SP>
-' OR SLEEP(5)--<SP>
- AND SLEEP(5)--<SP>      <- numeric context
+' AND SLEEP(5)--<SP>          string context
+ AND SLEEP(5)--<SP>           numeric context
 ```
 
 `<SP>` is a single literal space. **The space after `--` is mandatory** -- MySQL
 and MariaDB do not treat a bare `--` as a comment. The authoritative strings live
-in `scripts/payloads.py`.
+in `scripts/payloads.py`; if the two disagree, the file is right.
+
+> **AND only, never OR.** `' OR SLEEP(5)` makes the condition true for every row,
+> and MySQL evaluates SLEEP once per row -- a five-row table answers after 25
+> seconds, not 5. That blows the request timeout, reads as a hang rather than a
+> delay, and holds a database connection open the whole time.
 
 When porting to another DBMS, this is the only part that changes.
 
@@ -91,7 +95,11 @@ No response at all (timeout) is different from a normal response 5 seconds later
 If we are sending several requests in parallel, they slow each other down.
 **Send requests serially during the time-blind stage.**
 
-## Output example
+## What the tool returns when this technique confirms
+
+These fields come back from `evaluate_sqli`. **You never write them yourself** --
+the skill classifies context, the tool decides the verdict, and the report
+carries these values through unchanged.
 
 ```
 PARAM: id
@@ -101,5 +109,5 @@ STAGE_REACHED: 3
 VULNERABLE: Yes
 TECHNIQUE: time-blind
 EVIDENCE: baseline 0.31s / 0.28s, payload 1st 5.42s, 2nd 5.38s - reproduced twice
-PAYLOAD:  AND SLEEP(5)--
+PAYLOAD:  AND SLEEP(5)--<SP>
 ```

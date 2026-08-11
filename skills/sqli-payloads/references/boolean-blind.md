@@ -29,22 +29,26 @@ SELECT * FROM users WHERE id = '1' AND '1'='2'   -> condition false -> no rows
 
 ```
 ' AND '1'='1        /        ' AND '1'='2
-' OR '1'='1'--<SP>  /        ' OR '1'='2'--<SP>
 ```
 
 **Numeric context**
 
 ```
  AND 1=1            /         AND 1=2
- OR 1=1--<SP>       /         OR 1=2--<SP>
 ```
 
-> `<SP>` stands for a single literal space, written out because a trailing space
-> is invisible in a code block. **The space after `--` is mandatory**: MySQL and
-> MariaDB do not treat a bare `--` as a comment.
+> **AND only. Never OR.** `' OR '1'='1'-- ` returns every row in the table, so it
+> differs from the baseline just like the FALSE payload does — and the decision
+> table below needs TRUE to *match* the baseline. Detecting with OR scores a
+> genuinely injectable parameter as not vulnerable. OR is for exploitation,
+> after detection is done.
 >
 > The authoritative strings are in `scripts/payloads.py`. If this document and
-> that file ever disagree, the file is right and this document is a bug.
+> that file ever disagree, the file is right and this document is the bug.
+>
+> Where a payload ends in a comment, `-- ` carries a **mandatory trailing
+> space**: MySQL and MariaDB do not treat a bare `--` as a comment. It is
+> invisible in a code block, so the file is the place to check it.
 
 ## IMPORTANT: Decision table
 
@@ -89,7 +93,11 @@ It can be perfectly normal for `id=1` and `id=1 AND 1=2` to return different res
 That is why the rule requires **the true condition to match the baseline**. That is the
 crux of it.
 
-## Output example
+## What the tool returns when this technique confirms
+
+These fields come back from `evaluate_sqli`. **You never write them yourself** --
+the skill classifies context, the tool decides the verdict, and the report
+carries these values through unchanged.
 
 ```
 PARAM: id

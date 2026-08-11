@@ -65,7 +65,11 @@ Even if `'` gets printed on the screen, **without a DB error it is not confirmed
 Production configurations hide DB errors. **error-based failing to hit does not mean the target is safe.**
 That is why stage 2 and stage 3 exist. **Silence at stage 1 is not "not vulnerable", it is "undetermined".**
 
-## Output example
+## What the tool returns when this technique confirms
+
+These fields come back from `evaluate_sqli`. **You never write them yourself** --
+the skill classifies context, the tool decides the verdict, and the report
+carries these values through unchanged.
 
 ```
 PARAM: id
