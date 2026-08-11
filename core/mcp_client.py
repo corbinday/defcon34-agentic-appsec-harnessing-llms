@@ -9,9 +9,16 @@ which side of a process boundary the tools live on:
     from core.mcp_client import enumerate_endpoints   # over MCP stdio
     from core.mcp_client import evaluate_sqli
 
-Both pairs take the same arguments and return the same python objects. The only
-argument that is deliberately missing is `session`: the server owns the one
-session, and that is the whole reason the server exists (see mcp_server.py).
+Both pairs take the same arguments and return the same python objects. The MCP
+pair is the normal transport; the in-process pair is what --direct falls back
+to for debugging. The only argument that is deliberately missing is `session`:
+the server owns the one session, and that is the whole reason the server exists
+(see mcp_server.py).
+
+Which servers get started, and which tool names each one serves, is
+config.MCP_SERVERS. A second server (command injection, recon) is an entry
+there plus a new server file; connect() routes each tool name to the server
+that claims it and refuses two servers claiming the same name.
 
 ONE CONNECTION, REUSED
 ----------------------
@@ -19,10 +26,10 @@ The MCP client API is async and every transport is a context manager, so the
 obvious implementation -- asyncio.run() per call -- would spawn a server, log
 in, run one tool and tear it all down again, once per parameter. Against a
 shared remote DVWA that is a login per payload, which AGENTS.md section 2 says
-melts the target. Instead one background thread runs one event loop that holds
-the stdio connection open, and the two sync functions below hand coroutines to
-it. connect() is idempotent; close() (also registered with atexit) shuts the
-subprocess down.
+melts the target. Instead each server gets one background thread running one
+event loop that holds its stdio connection open, and the two sync functions
+below hand coroutines to it. connect() is idempotent; close() (also registered
+with atexit) shuts the subprocesses down.
 
 FAILURES ARE RAISED
 -------------------
@@ -77,7 +84,7 @@ def _import_mcp():
         raise McpUnavailable(
             "the 'mcp' package is not installed in this environment.\n"
             "    pip install mcp\n"
-            "Without it, run the pipeline without --mcp: stages 1 and 3 then "
+            "Without it, run the pipeline with --direct: stages 1 and 3 then "
             "call core/browser.py and core/prober.py in process, which is the "
             "default and needs nothing extra.\n"
             "Original import error: %s" % exc)
@@ -204,49 +211,80 @@ def _payload(name, result):
 
 
 # ---------------------------------------------------------------------------
-# Module-level connection, lazily opened and reused
+# Module-level connections, opened once and reused. One per entry in
+# config.MCP_SERVERS; calls are routed to the server that claims the tool name.
 # ---------------------------------------------------------------------------
-_CONN = None
-_LOCK = threading.Lock()
+_CONNS = {}          # server name -> _Connection
+_ROUTES = {}         # tool name   -> _Connection
+_LOCK = threading.RLock()
 
 
-def connect(target, max_requests=None, server_script=None):
-    """Open the connection, or return the one already open.
+def _default_servers():
+    # Late import: core/ must not need agent/ to be importable.
+    from agent import config
+    return config.MCP_SERVERS
 
-    Reopening for a different target is a caller bug, not something to paper
-    over: the server logged into the first target and its session is bound to it.
+
+def connect(target, max_requests=None, servers=None):
+    """Start every server in the registry and route its tool names to it.
+
+    Idempotent. Reconnecting to a different target is a caller bug, not
+    something to paper over: the server logged into the first target at startup
+    and its session is bound to it.
     """
-    global _CONN
+    if servers is None:
+        servers = _default_servers()
+    if not servers:
+        raise McpCallFailed(
+            "config.MCP_SERVERS is empty, so there is no tool layer to call.")
+
     with _LOCK:
-        if _CONN is not None:
-            if _CONN.target != target:
-                raise McpCallFailed(
-                    "an MCP connection to %s is already open; close() it before "
-                    "connecting to %s" % (_CONN.target, target))
-            return _CONN
-        _CONN = _Connection(target, max_requests, server_script).open()
-        return _CONN
+        for entry in servers:
+            name = entry["name"]
+            existing = _CONNS.get(name)
+            if existing is not None:
+                if existing.target != target:
+                    raise McpCallFailed(
+                        "MCP server %r is already connected to %s; close() "
+                        "before connecting to %s"
+                        % (name, existing.target, target))
+                continue
+            conn = _Connection(target, max_requests,
+                               REPO_ROOT / entry["script"]).open()
+            _CONNS[name] = conn
+            for tool in entry["tools"]:
+                clash = _ROUTES.get(tool)
+                if clash is not None and clash is not conn:
+                    raise McpCallFailed(
+                        "two MCP servers both claim the tool name %r. One name "
+                        "each, no aliases (AGENTS.md section 2) -- fix "
+                        "config.MCP_SERVERS." % tool)
+                _ROUTES[tool] = conn
+    return _CONNS
 
 
 def close():
-    """Shut the server subprocess down. Safe to call twice."""
-    global _CONN
+    """Shut every server subprocess down. Safe to call twice."""
     with _LOCK:
-        conn, _CONN = _CONN, None
-    if conn is not None:
+        conns = list(_CONNS.values())
+        _CONNS.clear()
+        _ROUTES.clear()
+    for conn in conns:
         conn.close()
 
 
 atexit.register(close)
 
 
-def _conn_for(url):
-    if _CONN is not None:
-        return _CONN
+def _route(tool):
+    conn = _ROUTES.get(tool)
+    if conn is not None:
+        return conn
     raise McpCallFailed(
-        "no MCP connection open. Call core.mcp_client.connect(target) once at "
-        "startup before using the tools (agent/pipeline.py --mcp does this). "
-        "Wanted it for %s." % url)
+        "no MCP server is serving %r. Call core.mcp_client.connect(target) "
+        "once at startup (agent/pipeline.py does this unless you passed "
+        "--direct), and check that a config.MCP_SERVERS entry lists that tool "
+        "name. Connected servers: %s" % (tool, sorted(_CONNS) or "none"))
 
 
 # ---------------------------------------------------------------------------
@@ -260,8 +298,8 @@ def enumerate_endpoints(url, auth=None):
             "credentials do not cross the MCP boundary. The server logs in "
             "once at startup; set DAST_USERNAME / DAST_PASSWORD in its "
             "environment, or edit agent/config.py DVWA_CREDS.")
-    rows = _conn_for(url).call("enumerate_endpoints", {"url": url},
-                               ENUMERATE_TIMEOUT_SEC)
+    rows = _route("enumerate_endpoints").call(
+        "enumerate_endpoints", {"url": url}, ENUMERATE_TIMEOUT_SEC)
     if not isinstance(rows, list):
         raise McpCallFailed(
             "enumerate_endpoints returned %s, expected a list of rows"
@@ -272,7 +310,7 @@ def enumerate_endpoints(url, auth=None):
 def evaluate_sqli(url, method, param, context, value="", siblings=None,
                   dbms="unknown", depth="standard"):
     """Probe one parameter over MCP. Returns the contract dict verbatim."""
-    result = _conn_for(url).call(
+    result = _route("evaluate_sqli").call(
         "evaluate_sqli",
         {"url": url, "method": method, "param": param, "context": context,
          "value": value, "siblings": siblings, "dbms": dbms, "depth": depth},

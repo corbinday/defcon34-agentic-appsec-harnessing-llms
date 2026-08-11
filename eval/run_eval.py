@@ -44,13 +44,20 @@ def main():
     ap.add_argument("--runs", type=int, default=1)
     ap.add_argument("--llm", action="store_true",
                     help="score the deep agent instead of the Python stubs")
+    ap.add_argument("--mcp", action="store_true",
+                    help="reach the tools through mcp_server.py over stdio "
+                         "instead of importing them in process")
     args = ap.parse_args()
 
-    mode = "deep-agent" if args.llm else "stub"
+    # Both flags go into `mode`, because "which score is this" has two axes and
+    # a demo that shows one number needs to say which run produced it.
+    mode = "%s+%s" % ("deep-agent" if args.llm else "stub",
+                      "mcp" if args.mcp else "in-process")
     summaries = []
     for i in range(args.runs):
         print("\n===== run %d/%d (%s) =====" % (i + 1, args.runs, mode))
-        summaries.append(pipeline.run(args.target, use_llm=args.llm))
+        summaries.append(pipeline.run(args.target, use_llm=args.llm,
+                                      use_mcp=args.mcp))
 
     print("\n===== score (run 1 of %d, %d labels, %s) ====="
           % (args.runs, len(ALL), mode))

@@ -4,7 +4,7 @@ Collected by `enumerate_endpoints` before anything was tested.
 
 | # | Method | URL | Parameter | Value | Siblings replayed |
 |---|---|---|---|---|---|
-| 1 | POST | https://dvwa-production-a515.up.railway.app/setup.php | `user_token` | `cb4a7c1277b15a06e79b5c9404460aaf` | `create_db` |
+| 1 | POST | https://dvwa-production-a515.up.railway.app/setup.php | `user_token` | `ab4519bea6aa06326dc582b82b49e9b8` | `create_db` |
 | 2 | GET | https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/ | `username` | `(empty)` | `password`, `Login` |
 | 3 | GET | https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/ | `password` | `(empty)` | `username`, `Login` |
 | 4 | GET | https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/ | `Login` | `Login` | `username`, `password` |
@@ -30,7 +30,7 @@ Collected by `enumerate_endpoints` before anything was tested.
 | 24 | POST | https://dvwa-production-a515.up.railway.app/vulnerabilities/cryptography/index.php | `direction` | `encode` | `message` |
 | 25 | POST | https://dvwa-production-a515.up.railway.app/vulnerabilities/cryptography/index.php | `password` | `(empty)` | - |
 | 26 | POST | https://dvwa-production-a515.up.railway.app/security.php | `security` | `low` | `seclev_submit`, `user_token` |
-| 27 | POST | https://dvwa-production-a515.up.railway.app/security.php | `user_token` | `32413de0c550f1c2818409ebb98fd7e8` | `security`, `seclev_submit` |
+| 27 | POST | https://dvwa-production-a515.up.railway.app/security.php | `user_token` | `afa607129598019c877ec6c5bbe278af` | `security`, `seclev_submit` |
 | 28 | GET | https://dvwa-production-a515.up.railway.app/instructions.php | `doc` | `readme` | - |
 
 28 injection points across 16 endpoints.

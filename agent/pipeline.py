@@ -11,13 +11,14 @@ agent/prompts.py. The stubs stay as the fallback -- do not delete them.
     python agent/pipeline.py --target URL --llm    deep agent, needs Bedrock
 
 **Stages 1 and 3 have two transports.** By default they import core/browser.py
-and core/prober.py and call them in process. Pass **--mcp** and they go through
-mcp_server.py over stdio instead, which is where the session, the login, the
-allow-list and the request budget then live -- see mcp_server.py for why that
+and core/prober.py through **MCP** by default -- mcp_server.py over stdio, which
+is where the session, the login, the allow-list and the request budget live.
+Servers are listed in config.MCP_SERVERS, so a second one is an entry there
+rather than a change in here -- see mcp_server.py for why that
 boundary is worth a subprocess. The two flags are different axes and combine:
 
-    python agent/pipeline.py --target URL --mcp        tools over MCP
-    python agent/pipeline.py --target URL --llm --mcp  both
+    python agent/pipeline.py --target URL --llm       deep agent + MCP
+    python agent/pipeline.py --target URL --direct    debug: bypass MCP
 
 The seam is deliberate. Stage 2 has one job -- turn a list of points into a
 ranked subset with a context label -- and stage 4 has one job: turn verdicts into
@@ -62,8 +63,8 @@ CONTROL = ("submit", "login", "user_token", "csrf_token", "_method", "seclev_sub
 
 
 def stage1_enumerate(session, target, enumerate_fn=None):
-    """enumerate_fn is the --mcp seam: None means call core/browser.py directly,
-    which is the default path and the one the live numbers were measured on."""
+    """enumerate_fn is the transport seam. It is core.mcp_client.enumerate_endpoints
+    on the normal path; None means --direct, which calls core/browser.py here."""
     points = (enumerate_fn(target) if enumerate_fn
               else enumerate_endpoints(target, session=session))
     lines = ["# Context: attack surface of %s" % target, "",
@@ -104,8 +105,8 @@ def stage2_triage(points):
 
 
 def stage3_confirm(session, candidates, evaluate_fn=None):
-    """evaluate_fn is the --mcp seam. Same arguments either way; the MCP client
-    has no `session` argument because the server owns the session."""
+    """evaluate_fn is the transport seam. Same arguments either way; the MCP
+    client has no `session` argument because the server owns the session."""
     verdicts = []
     for c in candidates:
         r = (evaluate_fn(c["url"], c["method"], c["param"], c["context"],
@@ -187,28 +188,32 @@ def _llm_stages():
 
 
 def _mcp_tools(target, max_requests):
-    """Open the one MCP connection and hand back the two tool callables.
+    """Start every server in config.MCP_SERVERS and hand back the tool callables.
 
-    --llm and --mcp are different axes and combine freely: --llm swaps stages 2
-    and 4 for the deep agent, --mcp moves stages 1 and 3 behind a process
-    boundary. Neither knows about the other.
+    The transport and the model are different axes: --llm swaps stages 2 and 4
+    for the deep agent, the MCP transport moves stages 1 and 3 behind a process
+    boundary. Neither knows about the other, so they combine freely.
     """
     try:
         from core import mcp_client
     except Exception as exc:
-        raise SystemExit("--mcp cannot run here:\n%s" % exc)
+        raise SystemExit("the MCP transport cannot load here:\n%s" % exc)
     try:
-        mcp_client.connect(target, max_requests=max_requests)
+        mcp_client.connect(target, max_requests=max_requests,
+                           servers=config.MCP_SERVERS)
     except Exception as exc:
         raise SystemExit(
-            "--mcp could not start mcp_server.py:\n%s: %s\n"
-            "Without --mcp the pipeline calls core/browser.py and "
-            "core/prober.py in process, which needs none of this."
-            % (type(exc).__name__, exc))
+            "could not start the MCP tool layer:\n%s: %s\n"
+            "Servers tried: %s\n"
+            "--direct bypasses MCP and calls core/browser.py and "
+            "core/prober.py in process. That is a debug path: it also bypasses "
+            "the allow-list and budget enforcement the server owns."
+            % (type(exc).__name__, exc,
+               ", ".join(s["script"] for s in config.MCP_SERVERS)))
     return mcp_client
 
 
-def run(target, max_requests=None, use_llm=False, use_mcp=False):
+def run(target, max_requests=None, use_llm=False, use_mcp=None):
     started = time.time()
     # Fail before the first request if --llm cannot be honoured. Discovering a
     # missing dependency after stage 3 has spent the request budget is the worst
@@ -217,12 +222,22 @@ def run(target, max_requests=None, use_llm=False, use_mcp=False):
 
     # Same reason as --llm: if the tool transport cannot come up, fail now,
     # before stage 1 has spent a single request.
+    # MCP is the transport, not an option. The tool layer is a separate process
+    # that owns the session, the allow-list and the request budget, so those
+    # controls cannot be bypassed by anything the harness does -- and adding a
+    # second server later (command injection, recon) is an entry in
+    # config.MCP_SERVERS rather than a change here. --direct bypasses it for
+    # debugging only, because a stack trace through a subprocess is harder to
+    # read; it is not a supported way to run the tool.
+    if use_mcp is None:
+        use_mcp = not config.BYPASS_MCP
     mcp = _mcp_tools(target, max_requests) if use_mcp else None
     enumerate_fn = mcp.enumerate_endpoints if mcp else None
     evaluate_fn = mcp.evaluate_sqli if mcp else None
     print("[route] stages 1+3 %s | stages 2+4 %s"
-          % ("via the MCP server (mcp_server.py over stdio)" if use_mcp
-             else "call core/browser.py and core/prober.py in process",
+          % ("via MCP: %s" % ", ".join(x["name"] for x in config.MCP_SERVERS)
+             if use_mcp
+             else "DIRECT (debug bypass) - core/browser.py and core/prober.py",
              "via the deep agent (agent/deep_agent.py)" if use_llm
              else "run as Python stubs"))
 
@@ -252,7 +267,7 @@ def run(target, max_requests=None, use_llm=False, use_mcp=False):
     else:
         stage4_report(target, points, verdicts, elapsed)
 
-    # With --mcp the probe requests are spent by the SERVER's session, not by
+    # Over MCP the probe requests are spent by the SERVER's session, not by
     # ours, so session.requests_used alone would report the login and nothing
     # else. Each verdict carries its own count, so add them back rather than
     # printing a number we know is wrong. (The crawl is not in either figure:
@@ -284,12 +299,12 @@ if __name__ == "__main__":
                          "(agent/deep_agent.py) instead of the Python stubs. "
                          "Needs 'pip install -r requirements.txt' plus AWS "
                          "credentials; without it the stubs run as before.")
-    ap.add_argument("--mcp", action="store_true",
-                    help="run stages 1 and 3 through mcp_server.py over stdio "
-                         "instead of importing core/browser.py and "
-                         "core/prober.py in process. The server owns the "
-                         "session, the login, the allow-list and the request "
-                         "budget. Combines freely with --llm. Needs "
-                         "'pip install mcp'.")
+    ap.add_argument("--direct", action="store_true",
+                    help="DEBUG ONLY. Import core/browser.py and core/prober.py "
+                         "in process instead of going through the MCP servers "
+                         "in config.MCP_SERVERS. MCP is the normal transport: "
+                         "the server owns the session, the allow-list and the "
+                         "request budget, so bypassing it also bypasses those.")
     a = ap.parse_args()
-    run(a.target, a.max_requests, use_llm=a.llm, use_mcp=a.mcp)
+    run(a.target, a.max_requests, use_llm=a.llm,
+        use_mcp=False if a.direct else None)

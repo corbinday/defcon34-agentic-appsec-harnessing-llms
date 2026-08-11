@@ -133,6 +133,11 @@ KIND_WEIGHT = {"finding": 1.0, "analysis": 1.0, "summary": 1.0, "skill": 0.85}
 # is 8 chunks, which is the whole result set.
 PER_SOURCE_CAP = 3
 
+# Slots held for artifacts/ when any artifact chunk matched at all. The corpus
+# is roughly two-thirds methodology, so ranking alone answers "what did we find"
+# out of the documents that describe how we look. See retrieve().
+RESERVED_FOR_ARTIFACTS = 3
+
 # Below this length a prefix match is noise ("id" would match "identifier").
 PREFIX_MIN = 5
 
@@ -179,16 +184,40 @@ def retrieve(index: dict, question: str, k: int = TOP_K) -> tuple[list[dict], fl
 
     scored.sort(key=lambda p: -p[0])
 
+    # Reserve the last RESERVED_FOR_ARTIFACTS slots for this assessment's own
+    # output. "Was the blind page confirmed, and by which technique?" is a
+    # question about our results, but every word in it -- blind, technique,
+    # confirmed, injection -- is dense in the methodology docs, which outnumber
+    # the artifacts more than two to one. Ranking alone hands all eight slots to
+    # skill chunks and the answer explains how a technique is judged instead of
+    # saying which page we judged. The reservation is only claimed when an
+    # artifact chunk actually matched, so a genuine methodology question ("how
+    # is time-blind confirmed?") still fills the whole result set from skills.
+    artifacts = [c for _, _, c in scored if c["kind"] != "skill"]
+    findings = [c for c in artifacts if c["kind"] == "finding"]
+    reserved = min(RESERVED_FOR_ARTIFACTS, len(artifacts), k)
+
     top: list[dict] = []
     seen: dict[str, int] = {}
-    for _, _, c in scored:
-        if len(top) >= k:
-            break
-        n = seen.get(c["source"], 0)
-        if n >= PER_SOURCE_CAP:
-            continue
-        seen[c["source"]] = n + 1
-        top.append(c)
+
+    def _take(candidates, limit):
+        for c in candidates:
+            if len(top) >= limit:
+                break
+            n = seen.get(c["source"], 0)
+            if n >= PER_SOURCE_CAP or c in top:
+                continue
+            seen[c["source"]] = n + 1
+            top.append(c)
+
+    _take((c for _, _, c in scored), k - reserved)   # best of anything
+    # A finding first, before the prose that summarises findings. 05_report.md
+    # says "3 confirmed" in one paragraph and outscores every individual finding
+    # on term count, so without this the bot answers "which page, by which
+    # technique?" from the summary and cannot name the payload or the evidence.
+    _take(findings, k)
+    _take(artifacts, k)                              # then the rest of artifacts
+    _take((c for _, _, c in scored), k)              # then top up if short
 
     coverage = max((cov for _, cov, _ in scored), default=0.0)
     return top, coverage

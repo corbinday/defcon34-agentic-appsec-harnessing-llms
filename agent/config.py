@@ -35,6 +35,24 @@ ALLOWED_TARGETS = [
 
 DEFAULT_TARGET = "http://localhost:8080"
 
+# The tool layer is a separate process reached over MCP (stdio). One entry per
+# server: `script` is relative to the repo root, `tools` is exactly the tool
+# names that server exposes, and core/mcp_client.py routes a call to the server
+# that claims that name. Adding command injection later is a new entry here plus
+# a new server file -- the harness and the two existing tools do not change.
+# Two entries claiming the same tool name is an error, not a fallback.
+MCP_SERVERS = [
+    {"name": "dvwa-sqli-dast",
+     "script": "mcp_server.py",
+     "tools": ["enumerate_endpoints", "evaluate_sqli"]},
+]
+
+# Debug bypass, set by `python agent/pipeline.py --direct`. True imports
+# core/browser.py and core/prober.py in process, which also bypasses the
+# allow-list and request-budget enforcement that live in the server. Leave it
+# False: MCP is the normal transport.
+BYPASS_MCP = False
+
 MAX_REQUESTS = 300
 REQUEST_DELAY_SEC = 0.2
 HTTP_TIMEOUT_SEC = 20
@@ -55,3 +73,37 @@ DVWA_CREDS = {"username": "admin", "password": "password"}
 # The cap still does its job: 10 of 28 is 36% of the surface, and at 12 requests
 # per point that is 120 against a budget of 300.
 MAX_CANDIDATES = 10
+
+
+# ---------------------------------------------------------------------------
+# MCP servers
+# ---------------------------------------------------------------------------
+# The tool layer reaches the target through MCP, not through a direct import.
+# That is the default and there is no flag to turn it on -- --direct exists only
+# for debugging, because a stack trace through a subprocess is harder to read.
+#
+# Why a registry rather than one hardcoded server: the boundary is the point.
+# Adding command injection later, or a third-party MCP server for recon, means
+# appending an entry here. The harness does not change, the contract does not
+# change, and the new tools show up next to the existing two.
+#
+# Each entry: name, the command to spawn, its arguments, and which tools it is
+# expected to expose. The expected list is checked at startup, so a server that
+# silently stops exposing a tool fails loudly instead of quietly doing nothing.
+MCP_SERVERS = [
+    {
+        "name": "sqli-dast",
+        "script": "mcp_server.py",
+        "tools": ["enumerate_endpoints", "evaluate_sqli"],
+        "note": "Ours. Owns the session, the allow-list and the request budget.",
+    },
+    # {
+    #     "name": "cmdi-dast",
+    #     "script": "mcp_cmdi_server.py",
+    #     "tools": ["evaluate_command_injection"],
+    #     "note": "Next vulnerability class. Same shape, new skill folder.",
+    # },
+]
+
+# Debug escape hatch only. Leave this False.
+BYPASS_MCP = False

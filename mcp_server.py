@@ -1,6 +1,6 @@
 """The MCP server the team diagram promised: exactly two tools, over stdio.
 
-    harness (agent/pipeline.py --mcp)
+    harness (agent/pipeline.py)
         |  stdio, JSON-RPC
         v
     mcp_server.py            <- owns the Session, the allow-list, the budget
@@ -48,7 +48,7 @@ Run it:
     python mcp_server.py --target https://dvwa-production-a515.up.railway.app
 
 Normally you do not run it by hand -- core/mcp_client.py spawns it, and
-`python agent/pipeline.py --target URL --mcp` drives the whole chain through it.
+`python agent/pipeline.py --target URL` drives the whole chain through it.
 """
 
 from __future__ import annotations
@@ -201,7 +201,7 @@ def build_server():
         raise SystemExit(
             "the 'mcp' package is not installed in this environment.\n"
             "    pip install mcp\n"
-            "Without it the pipeline still runs: drop --mcp and stages 1 and 3 "
+            "Without it the pipeline still runs: pass --direct and stages 1 and 3 "
             "call core/browser.py and core/prober.py in process.\n"
             "Original import error: %s" % exc)
 
