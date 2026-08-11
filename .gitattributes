@@ -1,0 +1,7 @@
+# Two of us are on macOS, one is on Windows. Normalise line endings so diffs
+# stay readable and the three consistency runs compare bytes, not newlines.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.pdf binary
