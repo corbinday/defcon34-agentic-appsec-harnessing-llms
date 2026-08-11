@@ -1,0 +1,69 @@
+{
+  "target": "https://dvwa-production-a515.up.railway.app",
+  "points_total": 12,
+  "points_tested": 6,
+  "requests_used": 58,
+  "elapsed_sec": 14.3,
+  "findings": [
+    {
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli/",
+      "method": "GET",
+      "param": "id",
+      "vulnerable": true,
+      "technique": "error-based",
+      "payload": "'",
+      "evidence": "DB error fingerprint 'You have an error in your SQL syntax' in response: ...or</b>: Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near ''1''' at line 1 in /var/www/html/vulnerabilit...",
+      "error": null
+    },
+    {
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli_blind/",
+      "method": "GET",
+      "param": "id",
+      "vulnerable": true,
+      "technique": "boolean-blind",
+      "payload": "' AND '1'='1  vs  ' AND '1'='2",
+      "evidence": "asymmetry confirmed - baseline 4703 bytes / TRUE 4703 / FALSE 4709, compared by content (TRUE matches baseline, FALSE differs)",
+      "error": null
+    },
+    {
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/",
+      "method": "GET",
+      "param": "username",
+      "vulnerable": true,
+      "technique": "error-based",
+      "payload": "'",
+      "evidence": "DB error fingerprint 'You have an error in your SQL syntax' in response: ...or</b>: Uncaught mysqli_sql_exception: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'd41d8cd98f00b204e9800998ecf8427e'' at line 1...",
+      "error": null
+    },
+    {
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/",
+      "method": "GET",
+      "param": "password",
+      "vulnerable": false,
+      "technique": "none",
+      "payload": "",
+      "evidence": "",
+      "error": null
+    },
+    {
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/exec/",
+      "method": "POST",
+      "param": "ip",
+      "vulnerable": false,
+      "technique": "none",
+      "payload": "",
+      "evidence": "",
+      "error": null
+    },
+    {
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/xss_r/",
+      "method": "GET",
+      "param": "name",
+      "vulnerable": false,
+      "technique": "none",
+      "payload": "",
+      "evidence": "",
+      "error": null
+    }
+  ]
+}
