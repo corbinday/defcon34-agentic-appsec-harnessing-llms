@@ -1,0 +1,127 @@
+Now I'll analyze the 28 points and rank them according to the endpoint-discovery criteria:
+
+## Analysis
+
+**HIGH PRIORITY** (likely to reach a database):
+- **POINT 14** (`id` on `/vulnerabilities/sqli/`) - Classic SQL injection parameter, record lookup
+- **POINT 16** (`id` on `/vulnerabilities/sqli_blind/`) - Classic SQL injection parameter, blind variant
+- **POINT 1** (`user_token` on `/setup.php`) - Token field, may be used in DB query
+- **POINT 28** (`doc` on `/instructions.php`) - File/document lookup, may query DB
+
+**MEDIUM PRIORITY** (possible DB interaction):
+- **POINT 2** (`username` on brute force) - Authentication parameter, classic login bypass target
+- **POINT 11** (`step` on captcha) - Numeric field, may track state in DB
+- **POINT 9** (`page` on file inclusion) - File parameter, could be DB-backed
+
+**LOW PRIORITY** (unlikely to reach DB):
+- POINT 3-8: Password fields, CSRF tokens, form controls
+- POINT 10: File upload size limit (control field)
+- POINT 12-13: Password confirmation fields
+- POINT 15, 17: Submit buttons (control fields)
+- POINT 18-20: XSS/CSP parameters (not SQL injection targets)
+- POINT 21-22: JavaScript token/phrase (not DB-backed)
+- POINT 23-25: Cryptography parameters (not DB-backed)
+- POINT 26-27: Security settings and tokens (control fields)
+
+I'll select the 8 most promising parameters for SQL injection testing:
+
+---
+
+TOTAL_POINTS: 28
+SELECTED: 8
+
+URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli/
+METHOD: GET
+PARAM: id
+PRIORITY: high
+CONTEXT: numeric
+CONTEXT_REASON: Original value is empty, but parameter name "id" indicates numeric record lookup
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: standard
+REASON: Classic SQL injection parameter on dedicated SQLi vulnerability page
+REQUIRES_AUTH: false
+
+URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli_blind/
+METHOD: GET
+PARAM: id
+PRIORITY: high
+CONTEXT: numeric
+CONTEXT_REASON: Original value is empty, but parameter name "id" indicates numeric record lookup
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: standard
+REASON: Blind SQL injection variant, requires boolean/time-based techniques
+REQUIRES_AUTH: false
+
+URL: https://dvwa-production-a515.up.railway.app/setup.php
+METHOD: POST
+PARAM: user_token
+PRIORITY: high
+CONTEXT: string
+CONTEXT_REASON: Original value is a 32-character hex string (token format)
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: quick
+REASON: Token field may be validated against database during setup
+REQUIRES_AUTH: false
+
+URL: https://dvwa-production-a515.up.railway.app/instructions.php
+METHOD: GET
+PARAM: doc
+PRIORITY: high
+CONTEXT: string
+CONTEXT_REASON: Original value is "readme", a document name
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: quick
+REASON: Document lookup parameter may query database for content
+REQUIRES_AUTH: false
+
+URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/
+METHOD: GET
+PARAM: username
+PRIORITY: high
+CONTEXT: unknown
+CONTEXT_REASON: Original value is empty, but parameter name indicates authentication field
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: standard
+REASON: Username field on authentication page is classic login bypass injection point
+REQUIRES_AUTH: false
+
+URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/fi/
+METHOD: GET
+PARAM: page
+PRIORITY: medium
+CONTEXT: string
+CONTEXT_REASON: Original value is "include.php", a filename
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: quick
+REASON: File inclusion parameter may be backed by database lookup
+REQUIRES_AUTH: false
+
+URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/captcha/
+METHOD: POST
+PARAM: step
+PRIORITY: medium
+CONTEXT: numeric
+CONTEXT_REASON: Original value is 1, a single digit
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: quick
+REASON: Numeric step field may track state in database
+REQUIRES_AUTH: false
+
+URL: https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/
+METHOD: GET
+PARAM: password
+PRIORITY: medium
+CONTEXT: unknown
+CONTEXT_REASON: Original value is empty, but parameter name indicates authentication field
+DBMS: mysql
+DBMS_REASON: Stack specifies MariaDB (MySQL-compatible)
+DEPTH: quick
+REASON: Password field on authentication page may be used in database query
+REQUIRES_AUTH: false

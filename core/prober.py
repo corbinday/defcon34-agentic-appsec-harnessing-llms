@@ -14,6 +14,7 @@ stylistic one.
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 
 from core import verdict as V
@@ -24,6 +25,10 @@ _PAYLOADS_PATH = (Path(__file__).resolve().parent.parent
                   / "skills" / "sqli-payloads" / "scripts" / "payloads.py")
 _spec = importlib.util.spec_from_file_location("sqli_payloads", _PAYLOADS_PATH)
 payloads = importlib.util.module_from_spec(_spec)
+# Register before executing. dataclasses resolves a class's module through
+# sys.modules, and a module loaded this way is not in there yet, so @dataclass
+# raises AttributeError on None.
+sys.modules["sqli_payloads"] = payloads
 _spec.loader.exec_module(payloads)
 
 # Used when the crawler saw no original value. "1" because record lookups are
@@ -53,7 +58,15 @@ def _result(confirmed, technique, evidence, payload, stage, used, error=None):
 
 def evaluate_sqli(url, method, param, context, value="", siblings=None, session=None):
     if session is None:
-        raise ValueError("evaluate_sqli needs a core.session.Session")
+        # Standalone call, per the verify line in AGENTS.md section 5. The
+        # pipeline always passes its own session, so this branch never runs
+        # during a real run. Deliberately outside the try below: a login failure
+        # is not an "undetermined parameter", it is a broken setup, and burying
+        # it in the `error` field would read as "the point was not reachable".
+        from core.session import default_session
+        from urllib.parse import urlsplit
+        parts = urlsplit(url)
+        session = default_session("%s://%s" % (parts.scheme, parts.netloc))
     start = session.requests_used
     used = lambda: session.requests_used - start
 

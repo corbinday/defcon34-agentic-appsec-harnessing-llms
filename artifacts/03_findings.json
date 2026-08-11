@@ -1,9 +1,9 @@
 {
   "target": "https://dvwa-production-a515.up.railway.app",
-  "points_total": 26,
-  "points_tested": 6,
-  "requests_used": 52,
-  "elapsed_sec": 45.9,
+  "points_total": 28,
+  "points_tested": 8,
+  "requests_used": 138,
+  "elapsed_sec": 51.2,
   "findings": [
     {
       "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/sqli/",
@@ -26,6 +26,26 @@
       "error": null
     },
     {
+      "url": "https://dvwa-production-a515.up.railway.app/setup.php",
+      "method": "POST",
+      "param": "user_token",
+      "vulnerable": false,
+      "technique": "none",
+      "payload": "",
+      "evidence": "",
+      "error": null
+    },
+    {
+      "url": "https://dvwa-production-a515.up.railway.app/instructions.php",
+      "method": "GET",
+      "param": "doc",
+      "vulnerable": false,
+      "technique": "none",
+      "payload": "",
+      "evidence": "",
+      "error": null
+    },
+    {
       "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/",
       "method": "GET",
       "param": "username",
@@ -36,9 +56,19 @@
       "error": null
     },
     {
-      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/csp/",
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/fi/",
+      "method": "GET",
+      "param": "page",
+      "vulnerable": false,
+      "technique": "none",
+      "payload": "",
+      "evidence": "",
+      "error": null
+    },
+    {
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/captcha/",
       "method": "POST",
-      "param": "include",
+      "param": "step",
       "vulnerable": false,
       "technique": "none",
       "payload": "",
@@ -46,19 +76,9 @@
       "error": null
     },
     {
-      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/xss_d/",
+      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/",
       "method": "GET",
-      "param": "default",
-      "vulnerable": false,
-      "technique": "none",
-      "payload": "",
-      "evidence": "",
-      "error": null
-    },
-    {
-      "url": "https://dvwa-production-a515.up.railway.app/vulnerabilities/xss_r/",
-      "method": "GET",
-      "param": "name",
+      "param": "password",
       "vulnerable": false,
       "technique": "none",
       "payload": "",

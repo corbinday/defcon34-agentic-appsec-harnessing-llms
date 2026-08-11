@@ -1,4 +1,4 @@
-# Harness — same stack as the lecture example (Bedrock via langchain-aws)
+# Harness - same stack as the lecture example (Bedrock via langchain-aws)
 deepagents
 langchain-aws
 langchain-core
@@ -7,6 +7,10 @@ langchain-text-splitters
 python-dotenv
 
 # Chatbot / knowledge base (deliverable 3)
+# build_index.py and chatbot.py --selftest need NOTHING from this file: the
+# index and the retriever are stdlib only. boto3 is needed to actually answer
+# (Bedrock Converse), and faiss-cpu only for the optional --embed path.
+boto3
 faiss-cpu
 
 # Tool layer
