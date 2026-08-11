@@ -141,6 +141,8 @@ Write the labels in ENGLISH CAPITALS exactly as shown. They are parsed automatic
 DVWA = {
     "cwe_id": "CWE-89",
     "vuln_name": "SQL Injection",
+    # Default only. The real target arrives at runtime:
+    #   build(ORCHESTRATOR, {**DVWA, "base_url": args.target})
     "base_url": "http://localhost:8080",
     "language": "PHP",
     "framework": "none (plain PHP)",

@@ -21,24 +21,42 @@ person. Point your AI assistant at it, then at your own section.
 
 ## Run
 
-```powershell
-$env:PYTHONIOENCODING = "utf-8"
+macOS / Linux:
 
-python -m venv venv
-.\venv\Scripts\Activate.ps1
+```sh
+python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 playwright install chromium
+```
 
+Windows (PowerShell):
+
+```powershell
+$env:PYTHONIOENCODING = "utf-8"
+python -m venv venv; .\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+playwright install chromium
+```
+
+Then, on either platform:
+
+```sh
+python agent/pipeline.py --target https://dvwa-production-a515.up.railway.app
+python eval/run_eval.py  --target https://dvwa-production-a515.up.railway.app --runs 3
+```
+
+**The target is always an argument.** Our shared DVWA lives at
+`https://dvwa-production-a515.up.railway.app`; run a local container while you
+iterate so you are not hammering it:
+
+```sh
 docker run -d -p 8080:80 vulnerables/web-dvwa
 # http://localhost:8080/setup.php -> Create / Reset Database
 # login admin / password, then /security.php -> security level "low"
-
-python agent\pipeline.py --target http://localhost:8080
-python eval\run_eval.py --runs 3
 ```
 
-**Only the local instance, or the one URL in `ALLOWED_TARGETS`.** The allow-list
-is enforced in code, not in a prompt.
+**Only hosts listed in `ALLOWED_TARGETS` are reachable.** The allow-list is
+enforced in code, not in a prompt.
 
 ## Layout
 

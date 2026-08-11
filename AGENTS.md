@@ -3,7 +3,7 @@
 **Blueprint for the AI coding tools we each drive (Claude Code, Cursor) and for us.**
 
 Point your assistant at this file, then at *your* section under
-[6. Work orders](#6-work-orders). Do not make it read the whole repo first.
+[7. Work orders](#7-work-orders). Do not make it read the whole repo first.
 
 **If the code and this file disagree, fix this file first, then the code.**
 
@@ -205,49 +205,129 @@ One slow response is not evidence. Reproduce it.
 
 ---
 
-## 4. Run and verify
+## 4. The target
 
-```powershell
-# The Windows console must be UTF-8 or writing Korean artifacts will crash
-$env:PYTHONIOENCODING = "utf-8"
+**The target is an argument, never a constant.** Every entry point takes
+`--target <url>`; `agent/prompts.py` keeps `http://localhost:8080` only as a
+default, and the pipeline overrides it:
 
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-playwright install chromium          # Corbin only
-
-# target — each of us runs our own during development
-docker run -d -p 8080:80 vulnerables/web-dvwa
-#   http://localhost:8080/setup.php   -> Create / Reset Database
-#   login admin / password
-#   /security.php                     -> security level "low"
+```python
+build(ORCHESTRATOR, {**DVWA, "base_url": args.target})
 ```
 
-**Every component must be verifiable alone. Nobody waits on anybody.**
+Hardcoding a URL anywhere else breaks the demo line "point it at any DVWA-like
+app". The one thing that is *not* free-form is the allow-list in
+`agent/config.py`, enforced in `core/session.py` and never in a prompt:
 
-```powershell
-python skills\sqli-payloads\scripts\payloads.py   # payload set summary
-python eval\ground_truth.py                       # label counts + VERIFY list
-python -c "from core.prober import evaluate_sqli; print(evaluate_sqli('http://localhost:8080/vulnerabilities/sqli/','GET','id','numeric','1'))"
-python -c "from core.browser import enumerate_endpoints; print(len(enumerate_endpoints('http://localhost:8080')))"
-python agent\pipeline.py --target http://localhost:8080
-python eval\run_eval.py --runs 3                  # scores + consistency evidence
+```python
+ALLOWED_TARGETS = [
+    "http://localhost:8080",                          # local dev
+    "http://127.0.0.1:8080",
+    "https://dvwa-production-a515.up.railway.app",    # our shared instance
+]
+```
+
+**Our shared instance** — `https://dvwa-production-a515.up.railway.app` — is a
+DVWA we deployed ourselves for this exercise. Use it for the demo run; use a
+local container while iterating.
+
+Verified against that live instance:
+
+| Fact | Consequence for the code |
+|---|---|
+| `Set-Cookie: security=low` arrives on the first request | do not fight it, just keep the cookie |
+| `login.php` carries a `user_token` CSRF field, new on every render | fetch the page and read the token before every POST |
+| `admin` / `password` returns 302 to `index.php` | that redirect is our "logged in" check |
+| `/vulnerabilities/sqli/` and `/sqli_blind/` take `id` and `Submit` (GET) | matches `eval/ground_truth.py` |
+| `/security.php` takes `security`, `seclev_submit`, `user_token` (POST) | matches `eval/ground_truth.py` |
+| `/vulnerabilities/exec/` takes `ip` and `Submit` (POST) | matches `eval/ground_truth.py` |
+
+**It is shared, remote and small.** Three things change versus localhost:
+
+- **Log in once per run.** A login per parameter will melt it.
+- **Serialise stage 3.** Concurrent requests make each other slow, and time-blind
+  reads that as a hit. Measure the baseline twice before trusting any delay.
+- **Respect `MAX_REQUESTS`.** A round trip to Railway is not a round trip to
+  localhost.
+
+Run a local container while iterating so you are not hammering the shared box:
+
+```sh
+docker run -d -p 8080:80 vulnerables/web-dvwa
+#   http://localhost:8080/setup.php -> Create / Reset Database
+#   login admin / password, then /security.php -> security level "low"
 ```
 
 DVWA runs MariaDB, so MySQL syntax applies: `SLEEP()`, `-- ` with a **trailing
 space**, `information_schema`.
 
-**Only test the local instance or the one URL in `ALLOWED_TARGETS`.** The
-allow-list is enforced in `core/session.py`, not in a prompt.
+## 5. Run and verify
+
+**Two of us are on macOS and one is on Windows.** Anything committed here has to
+run on both.
+
+<details open>
+<summary><b>macOS / Linux</b></summary>
+
+```sh
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+playwright install chromium          # Corbin only
+```
+</details>
+
+<details open>
+<summary><b>Windows (PowerShell)</b></summary>
+
+```powershell
+$env:PYTHONIOENCODING = "utf-8"      # required, or writing artifacts crashes
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+playwright install chromium
+```
+</details>
+
+**Every component must be verifiable alone. Nobody waits on anybody.** These run
+identically on both platforms — forward slashes work everywhere, including on
+Windows:
+
+```sh
+# no target needed - these are pure
+python skills/sqli-payloads/scripts/payloads.py   # payload set summary
+python eval/ground_truth.py                       # label counts + VERIFY list
+
+# TARGET is an argument everywhere. Point it at localhost or at the shared box.
+TARGET=http://localhost:8080
+TARGET=https://dvwa-production-a515.up.railway.app
+
+python agent/pipeline.py --target "$TARGET"
+python eval/run_eval.py --target "$TARGET" --runs 3   # scores + consistency evidence
+
+python -c "from core.browser import enumerate_endpoints; print(len(enumerate_endpoints('$TARGET')))"
+python -c "from core.prober import evaluate_sqli; print(evaluate_sqli('$TARGET/vulnerabilities/sqli/','GET','id','numeric','1'))"
+```
+
+On PowerShell the same lines work with `$TARGET = "http://localhost:8080"` and
+`"$TARGET"` unchanged.
 
 ---
 
-## 5. Coding rules
+## 6. Coding rules
 
 These come from failures we actually hit yesterday. They are not style opinions.
 
-- **Windows is in the mix.** Always `open(..., encoding="utf-8")`. Do not print
-  non-ASCII symbols — a cp949 console dies on them.
+- **We are split across macOS and Windows.** Three consequences, all of which
+  have bitten this project already:
+  - Always `open(..., encoding="utf-8")`, both read and write. A Windows console
+    defaults to cp949 here and dies on the first non-ASCII byte.
+  - **Keep source files ASCII-only.** Markdown may use whatever it likes; Python
+    may not. No arrows, no box characters, no stars in `print()`.
+  - Build paths with `pathlib.Path(__file__).parent / "x"`. Never join with `\`
+    or `/` by hand, and never hardcode a drive letter.
+  - The repo is `eol=lf` via `.gitattributes`. Do not commit CRLF — it turns
+    every consistency diff into noise.
 - **Do not swallow failures.** Never catch an exception and return a
   plausible-looking string. A fake result flowing into the next stage poisons the
   whole run. Raise, or fill in the `error` field.
@@ -264,9 +344,9 @@ These come from failures we actually hit yesterday. They are not style opinions.
 
 ---
 
-## 6. Work orders
+## 7. Work orders
 
-Give your assistant **§0 through §5, plus your own subsection.** Each one ends in
+Give your assistant **sections 0 through 6, plus your own subsection.** Each one ends in
 a command that proves it works without anyone else's code.
 
 ### @tprud9412 — verdict logic, evaluation, chatbot
@@ -311,8 +391,11 @@ DVWA returns `confirmed: True` with a MariaDB error string in `evidence`.
    Where the crawler cannot reach, emit the row with `requires_auth: true` rather
    than dropping it — **a redirect to login is "not reached", not "not
    vulnerable"**.
-3. Deploy one shared DVWA, put its URL in `agent/config.py:ALLOWED_TARGETS`, and
-   post the URL in Slack the moment it is up.
+3. **Done** — the shared DVWA is up at
+   `https://dvwa-production-a515.up.railway.app` and is already in
+   `ALLOWED_TARGETS`. Confirmed working: `admin`/`password`, `security=low`
+   arrives by cookie, and all four pages in `eval/ground_truth.py` respond with
+   the parameters we labelled.
 4. Write `artifacts/01_context.md` from the crawl result. That markdown **is
    deliverable ①**, so it needs headings and prose — not a JSON dump.
 
@@ -365,7 +448,7 @@ stubs produces both artifacts with no tool layer present.
 
 ---
 
-## 7. Integration and demo
+## 8. Integration and demo
 
 | Time | What |
 |---|---|
@@ -394,7 +477,7 @@ and one function in `verdict.py`. The harness and the contract do not change.
 
 ---
 
-## 8. Open decisions
+## 9. Open decisions
 
 Resolve these in Slack, then edit this file. Do not resolve them in code.
 
@@ -404,9 +487,11 @@ Resolve these in Slack, then edit this file. Do not resolve them in code.
    the two functions as plain Python and wrap them as `BaseTool` first** — that
    path is proven and runs today — then add the MCP wrapper only if we are ahead
    at T-30. The functions are identical either way, so this blocks nobody.
-2. **Shared target or local.** Until Corbin's instance is up, `ALLOWED_TARGETS`
-   stays `localhost`. Time-blind against a shared instance is slow and noisy — if
-   we go shared, consider skipping stage 3 there.
+2. **Stage 3 against the shared box.** ~~Shared target or local~~ — settled, the
+   Railway instance is live and in the allow-list. What is still open: time-blind
+   over the internet is slow and noisy. **Recommendation: keep stage 3 enabled
+   but serialised, and demo it against localhost if the timings wobble.** Decide
+   before the T-30 freeze, not during the demo.
 3. **Scope of "context" for deliverable ①.** Crawl output only. The diagram's
    "source review" would mean SAST, which the instructor explicitly told us not to
    combine with DAST today.
