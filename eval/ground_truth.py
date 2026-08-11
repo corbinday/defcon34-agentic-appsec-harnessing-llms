@@ -47,7 +47,16 @@ VULNERABLE_OBVIOUS = [
     Expected(
         url="/vulnerabilities/sqli/", method="GET", param="id",
         is_vulnerable=True, technique="error-based",
-        note="DVWA's canonical SQLi page. At low level a single quote raises a MariaDB error",
+        note="DVWA's canonical SQLi page. At low level a single quote raises a MariaDB "
+             "error. Needs Submit=Submit alongside it or the query never executes",
+    ),
+    Expected(
+        url="/vulnerabilities/brute/", method="GET", param="username",
+        is_vulnerable=True, technique="error-based",
+        note="The brute-force page builds WHERE user='$user' AND password='$pass' at "
+             "low level and prints the DB error. Confirmed on our instance that the "
+             "form is GET with username, password and Login. It is a login form, so a "
+             "scanner that only looks at pages named 'sqli' walks straight past it",
     ),
 ]
 
@@ -71,7 +80,12 @@ NOT_VULNERABLE = [
         url="/login.php", method="POST", param="username",
         is_vulnerable=False, technique="none", severity="low",
         requires_auth=False,
-        note="DVWA's own login. Recent versions use prepared statements",
+        note="UNVERIFIED. DVWA's own login page, not part of the vulnerable-by-design "
+             "exercise surface, so we labelled it clean. That is an assumption, not a "
+             "finding: whether login.php parameterises this query varies by DVWA "
+             "version, and ours is PHP 8.5. Confirm it on the deployed instance before "
+             "quoting any precision number - if it turns out injectable, this label is "
+             "manufacturing a false positive out of a correct detection",
         verify=True,
     ),
     Expected(
@@ -194,6 +208,14 @@ def grade(findings: list[dict]) -> Score:
         if f is not None and f.get("error"):
             s.undetermined += 1
             s.not_tested.append(f"{exp.url}?{exp.param}  ({f['error']})")
+        elif f is None and not exp.is_vulnerable:
+            # Never reported at all. Triage is *supposed* to drop low-value points,
+            # so this is not a failure -- but it is not a correct rejection either.
+            # Counting it as a true negative would pay a pipeline for the pages it
+            # never looked at, and the cheapest way to a perfect precision score
+            # would be to test nothing.
+            s.undetermined += 1
+            s.not_tested.append(f"{exp.url}?{exp.param}  (not selected by triage)")
         elif exp.is_vulnerable and said_vuln:
             s.tp += 1
             if f.get("technique") == exp.technique:
