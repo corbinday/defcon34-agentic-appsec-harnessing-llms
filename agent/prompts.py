@@ -124,6 +124,7 @@ CONFIRMED_COUNT: [number]
 Then one block per confirmed finding:
 
 FINDING_URL: [url]
+FINDING_METHOD: [GET or POST]
 FINDING_PARAM: [parameter]
 FINDING_TECHNIQUE: [error-based, boolean-blind, or time-blind]
 FINDING_SEVERITY: [critical, high, medium, or low]

@@ -92,17 +92,27 @@ Keeping the session alive is the tool's responsibility. This skill **only flags 
 
 ## Step 4 - Output
 
+**These labels are parsed by regex.** They match `agent/prompts.py` exactly; if
+you change one, change it in both places or the chain drops the stage.
+
+Two counters first:
+
 ```
 TOTAL_POINTS: (int) total number of points enumerated
 SELECTED: (int) number of points that will actually be tested
-POINTS:
-  - URL: (str)
-    METHOD: GET | POST
-    PARAM: (str) one parameter name
-    PRIORITY: high | medium | low
-    REASON: (str) one line on why it got this priority
-    REQUIRES_AUTH: true | false
-    BASELINE_RESPONSIVE: true | false | not-checked
+```
+
+Then one block per selected point, no wrapping list, no indentation:
+
+```
+URL: (str) full url
+METHOD: GET | POST
+PARAM: (str) one parameter name
+PRIORITY: high | medium
+CONTEXT: numeric | string | unknown
+CONTEXT_REASON: (str) one line - what the original value looked like
+REASON: (str) one line - why this parameter is worth testing
+REQUIRES_AUTH: true | false
 ```
 
 **`SELECTED` must be smaller than `TOTAL_POINTS`.**

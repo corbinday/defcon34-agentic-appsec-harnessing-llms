@@ -89,22 +89,26 @@ See `references/boolean-blind.md`.
 
 ## Stage 4 - Output
 
-Report each parameter in the format below. **Do not write guesses.**
+You report **what you asked for and what came back**. You do not report a verdict.
 
 ```
 PARAM: (str) parameter name
 CONTEXT: numeric | string | unknown
 CONTEXT_REASON: (str) one line on why you decided that
-STAGE_REACHED: 1 | 2 | 3
-VULNERABLE: Yes | No | Undetermined
-TECHNIQUE: error-based | boolean-blind | time-blind | none
-EVIDENCE: (str) what was actually observed. Raw error fingerprint, response length difference, delay time, etc.
-PAYLOAD: (str) the raw payload used for confirmation
 ```
 
-**Use `VULNERABLE: Yes` only when the tool returned evidence.**
-Do not infer it from reading the code, and do not write it because "it seems likely."
-If you could not confirm it, it is `Undetermined`. **Use `No` only after all three stages have been run.**
+That is your entire output for this skill. `evaluate_sqli` returns `confirmed`,
+`technique`, `evidence`, `payload` and `stage_reached`, and those values are
+carried through to the report **unchanged**.
+
+**Never write a vulnerability verdict yourself.** Not "Yes", not "No", not
+"looks injectable". A response you found suspicious is not evidence, and a
+response you found reassuring is not an all-clear -- the tool ran three
+techniques and knows things you cannot see from a page body.
+
+If you are tempted to write a verdict, what you actually want is to call the
+tool. If the tool returned an `error`, the point is **not tested**; say that
+instead of inferring safety from silence.
 
 ## Target DBMS
 
