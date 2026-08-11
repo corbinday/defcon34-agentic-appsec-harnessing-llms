@@ -2,7 +2,6 @@
 
 ## Entry points
 
-- POST `user_token` on https://dvwa-production-a515.up.railway.app/setup.php
 - GET `username` on https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/
 - GET `password` on https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/
 - GET `Login` on https://dvwa-production-a515.up.railway.app/vulnerabilities/brute/

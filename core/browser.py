@@ -56,6 +56,14 @@ PAGE_TIMEOUT_MS = 15000
 # Following these ends the session and every page after it looks unauthenticated.
 LOGOUT_MARKERS = ("logout", "signout", "log-out", "sign-out", "logoff")
 
+# Pages that are destructive to visit, not just useless. DVWA's setup.php is the
+# "Create / Reset Database" screen: crawling it on the shared instance during a
+# demo would wipe the data every finding depends on. Credit to Corbin, who
+# excluded it in his crawler branch and was right to.
+DESTRUCTIVE_MARKERS = ("setup.php", "reset", "install.php", "delete", "drop")
+
+SKIP_SCHEMES = ("javascript:", "mailto:", "tel:", "data:")
+
 # Not injection points, but they still ride along in siblings.
 SKIP_TYPES = {"submit", "button", "image", "reset", "file"}
 # ... except these two, which ground_truth.py labels as traps.
@@ -205,7 +213,7 @@ def _links(page, allowed):
         if not href or not _is_allowed(href, allowed):
             continue
         low = href.lower()
-        if any(m in low for m in LOGOUT_MARKERS):
+        if any(m in low for m in LOGOUT_MARKERS + DESTRUCTIVE_MARKERS):
             continue                      # following this kills the session
         if urlsplit(low).path.endswith(SKIP_SUFFIX):
             continue

@@ -278,10 +278,20 @@ def call_llm(prompt: str) -> str:
             "(original error: %s)" % exc) from exc
 
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from agent import config  # model ids live there and nowhere else
+    from agent import config  # model ids AND the region live there, nowhere else
 
     try:
-        client = boto3.client("bedrock-runtime")
+        from dotenv import load_dotenv    # same convenience the pipeline has
+        load_dotenv()
+    except ImportError:
+        pass
+
+    try:
+        # Pass the region explicitly. boto3 reads AWS_DEFAULT_REGION but not
+        # AWS_REGION from a bare client() call, and the .env handed out with the
+        # class sets one of them -- config.BEDROCK_REGION already reconciles the
+        # two, so ask it rather than hoping the environment agrees with boto3.
+        client = boto3.client("bedrock-runtime", region_name=config.BEDROCK_REGION)
     except Exception as exc:
         raise RuntimeError(
             "could not create a bedrock-runtime client. Set AWS_REGION (for "
